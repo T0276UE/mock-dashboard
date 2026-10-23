@@ -1,0 +1,6 @@
+- Update schema for following items:
+-- product_access: add customer_id relation for user-specific view for 
+    managed customers
+-- customer: add seperate table for metrics, activeSince, industry
+-- vehicle: add lastSeen, healthMetrics
+-- 

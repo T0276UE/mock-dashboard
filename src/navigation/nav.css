@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* Left rail collapsed by default, expands on hover. */
+.nav-rail {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  overflow: hidden;
+  transition: width 200ms ease-in-out;
+  width: 56px;
+  z-index: 40;
+}
+
+.dark .nav-rail {
+  background: #0f172a;
+  border-right-color: #111827;
+}
+
+.nav-rail.expanded {
+  width: 220px;
+}
+
+.nav-rail-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  height: 100%;
+  box-sizing: border-box;
+  /* ensure items start below top so squares aren't jammed into corner */
+  margin-top: 18px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 8px 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 150ms ease;
+}
+
+.nav-pin-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #111827;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nav-pin-toggle:hover {
+  background: #f3f4f6;
+}
+
+.dark .nav-pin-toggle {
+  background: #111827;
+  border-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark .nav-pin-toggle:hover {
+  background: #1f2937;
+}
+
+.nav-pin-icon {
+  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.nav-item:hover {
+  background-color: rgba(0,0,0,0.04);
+}
+
+.dark .nav-item:hover {
+  background-color: rgba(255,255,255,0.04);
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+}
+
+.nav-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 150ms linear, transform 150ms linear;
+}
+
+.nav-rail.expanded .nav-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* spacer to push content to top */
+.nav-spacer {
+  height: 8px;
+}
