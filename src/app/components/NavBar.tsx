@@ -1,14 +1,15 @@
 import React from 'react';
-import { routes } from '../navigation/routes';
-import { hasAccess } from '../navigation/permissions';
-import type { Role } from '../navigation/types';
-import landingPageIcon from '../assets/landingPageIcon.svg';
-import customersIcon from '../assets/customersIcon.svg';
-import productsIcon from '../assets/productsIcon.svg';
-import vehiclesIcon from '../assets/vehiclesIcon.svg';
-import compatabilityIcon from '../assets/compatabilityIcon.svg';
-import userManagementIcon from '../assets/userManagementIcon.svg';
-import '../navigation/nav.css';
+import { routes } from '../../navigation/routes';
+import { hasAccess } from '../../navigation/permissions';
+import type { Role } from '../../navigation/types';
+import landingPageIcon from '../../assets/landingPageIcon.svg';
+import customersIcon from '../../assets/customersIcon.svg';
+import productsIcon from '../../assets/productsIcon.svg';
+import vehiclesIcon from '../../assets/vehiclesIcon.svg';
+import compatabilityIcon from '../../assets/compatabilityIcon.svg';
+import userManagementIcon from '../../assets/userManagementIcon.svg';
+import { navigateTo } from '../../services/navigationService';
+import '../../navigation/nav.css';
 
 export interface NavBarProps {
   userRoles?: Role[];
@@ -33,11 +34,6 @@ export const NavBar: React.FC<NavBarProps> = ({
     vehicles: vehiclesIcon,
     compat: compatabilityIcon,
     manage: userManagementIcon,
-  };
-
-  const handleNavigate = (path: string) => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   return (
@@ -71,7 +67,7 @@ export const NavBar: React.FC<NavBarProps> = ({
             aria-label={r.name}
             onClick={(event) => {
               event.preventDefault();
-              handleNavigate(r.path);
+              navigateTo(r.path);
             }}
           >
             <span className="nav-icon" aria-hidden>

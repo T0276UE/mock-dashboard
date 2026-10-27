@@ -1,59 +1,15 @@
 import { useMemo, useState } from 'react';
-import ProductAssignmentModal from '../components/ProductAssignmentModal';
-import { customers, vehicles } from '../data/customers';
-import type { ProductInfo } from '../types/customer';
-
-const sampleProductRows = [
-  { product: 'Vehicle Health Telemetry', category: 'Telemetry', delivery: 'Kinesis stream', availability: 'Available', feature: 'Diagnostics', active: 18402, paused: 620, disabled: 84 },
-  { product: 'Vehicle Location History', category: 'Location', delivery: 'S3 batch', availability: 'Limited', feature: 'Location', active: 14315, paused: 314, disabled: 127 },
-  { product: 'Driving Behavior Analytics', category: 'Analytics', delivery: 'Kinesis stream', availability: 'Available', feature: 'Telematics', active: 12948, paused: 441, disabled: 96 },
-  { product: 'Battery Health Insights', category: 'Telemetry', delivery: 'Kinesis stream', availability: 'Available', feature: 'Battery', active: 8734, paused: 275, disabled: 201 },
-  { product: 'EV Charging Intelligence', category: 'API', delivery: 'S3 batch', availability: 'Available', feature: 'Charging', active: 5903, paused: 119, disabled: 63 },
-  { product: 'Diagnostics Summary', category: 'Diagnostics', delivery: 'API', availability: 'Available', feature: 'Diagnostics', active: 3481, paused: 182, disabled: 104 },
-  { product: 'Maintenance Predictor', category: 'Diagnostics', delivery: 'Kinesis stream', availability: 'Limited', feature: 'Maintenance', active: 1037, paused: 142, disabled: 88 },
-  { product: 'Insurance Risk Signals', category: 'Risk', delivery: 'API', availability: 'Draft', feature: 'Risk', active: 0, paused: 52, disabled: 101 },
-] as const;
-
-const creationPrompts = [
-  'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-  'Praesent volutpat interdum urna, in posuere lorem pulvinar ut.',
-  'Integer posuere tortor a purus iaculis, vitae blandit lorem tristique.',
-];
-
-const products: Array<{ sku: string; name: string; category: string; availability: string; price: string; productInfo: ProductInfo }> = [
-  {
-    sku: 'PRD-1001',
-    name: 'Fleet Core',
-    category: 'Platform',
-    availability: 'In stock',
-    price: '$1,200',
-    productInfo: { abbreviation: 'FLT', fullName: 'Fleet Management Suite' },
-  },
-  {
-    sku: 'PRD-1082',
-    name: 'Vehicle Insight Pro',
-    category: 'Analytics',
-    availability: 'Low stock',
-    price: '$980',
-    productInfo: { abbreviation: 'ANL', fullName: 'Driving Behavior Analytics' },
-  },
-  {
-    sku: 'PRD-1143',
-    name: 'Compatibility Gateway',
-    category: 'Integration',
-    availability: 'In stock',
-    price: '$1,450',
-    productInfo: { abbreviation: 'CMP', fullName: 'Compatibility Validation' },
-  },
-  {
-    sku: 'PRD-1205',
-    name: 'API Access Pack',
-    category: 'Support',
-    availability: 'Backorder',
-    price: '$340',
-    productInfo: { abbreviation: 'SUP', fullName: 'Support Services' },
-  },
-];
+import ProductAssignmentModal from '../../../shared/components/ProductAssignmentModal';
+import { customers, vehicles } from '../../../data/customers';
+import type { ProductInfo } from '../../../types/customer';
+import {
+  availabilityOptions,
+  creationPrompts,
+  featureOptions,
+  getSortedProductRows,
+  products,
+  sampleProductRows,
+} from '../productPageData';
 
 export default function ProductsPage() {
   const [modalProductSku, setModalProductSku] = useState<string | null>(null);
@@ -75,31 +31,8 @@ export default function ProductsPage() {
     return Array.from(map.values());
   }, []);
 
-  const featureOptions = ['All features', 'Diagnostics', 'Location', 'Telematics', 'Battery', 'Charging', 'Maintenance', 'Risk'];
-  const availabilityOptions = ['All availability', 'Available', 'Limited', 'Draft'];
   const sortedRows = useMemo(() => {
-    const filtered = sampleProductRows.filter((row) => {
-      const matchesSearch = !searchTerm || row.product.toLowerCase().includes(searchTerm.toLowerCase()) || row.category.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFeature = featureFilter === 'All features' || row.feature === featureFilter;
-      const matchesAvailability = availabilityFilter === 'All availability' || row.availability === availabilityFilter;
-      return matchesSearch && matchesFeature && matchesAvailability;
-    });
-
-    const copy = [...filtered];
-    switch (sortOption) {
-      case 'A-Z':
-        copy.sort((a, b) => a.product.localeCompare(b.product));
-        break;
-      case 'Most active':
-        copy.sort((a, b) => Number(b.active) - Number(a.active));
-        break;
-      case 'Least active':
-        copy.sort((a, b) => Number(a.active) - Number(b.active));
-        break;
-      default:
-        break;
-    }
-    return copy;
+    return getSortedProductRows(sampleProductRows, searchTerm, featureFilter, availabilityFilter, sortOption);
   }, [availabilityFilter, featureFilter, searchTerm, sortOption]);
 
   const selectedProductRow = sortedRows.find((row) => row.product === selectedProductName) ?? sortedRows[0] ?? null;

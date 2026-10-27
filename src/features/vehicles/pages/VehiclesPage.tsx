@@ -1,312 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { customers, vehicles as seedVehicles } from '../data/customers';
-import ProductTagTooltip from '../components/ProductTagTooltip';
-import ProductAssignmentModal from '../components/ProductAssignmentModal';
-import type { ProductAssignmentPayload, ProductAssignmentStatus } from '../components/ProductAssignmentModal';
-import type { Vehicle } from '../types/customer';
-import { useUser } from '../context/UserContext';
-import { userCanViewVehicle } from '../components/rolePermissions';
-
-type ProductInfo = Vehicle['products'][number];
-
-const activityColors: Record<Vehicle['activity'], { bg: string; text: string; border: string }> = {
-  Online: { bg: '#ecfdf5', text: '#15803d', border: '#86efac' },
-  Offline: { bg: '#fee2e2', text: '#dc2626', border: '#fca5a5' },
-  Paused: { bg: '#fef3c7', text: '#a16207', border: '#fcd34d' },
-};
-
-const yearOptions = ['All Years', '2024', '2023', '2022', '2021', '2020'] as const;
-const activityOptions: Array<'All Activity' | Vehicle['activity']> = ['All Activity', 'Online', 'Offline', 'Paused'];
-const drawerWidth = 320;
-
-const productStatusColors: Record<ProductAssignmentStatus, { bg: string; text: string; border: string; label: string }> = {
-  active: { bg: '#ecfdf5', text: '#15803d', border: '#86efac', label: 'Active' },
-  pending: { bg: '#fef9c3', text: '#a16207', border: '#fde68a', label: 'Pending' },
-  error: { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5', label: 'Error' },
-};
-
-function formatProductShortCode(value: string) {
-  const normalized = value.trim().toUpperCase();
-  if (!normalized) return '';
-
-  const segments = normalized.split('-').filter(Boolean);
-  if (segments.length >= 3) {
-    return `${segments[1]}-${segments[2]}`;
-  }
-
-  return normalized;
-}
-
-const supplementalProducts: ProductInfo[] = [
-  { abbreviation: 'CMP', fullName: 'Compatibility Validation' },
-  { abbreviation: 'CNS', fullName: 'Consent Management' },
-  { abbreviation: 'TRI', fullName: 'Trip Intelligence' },
-  { abbreviation: 'SEC', fullName: 'Security Monitoring' },
-];
-
-const baseProductCatalog: ProductInfo[] = (() => {
-  const map = new Map<string, ProductInfo>();
-
-  customers.forEach((customer) => {
-    customer.products.forEach((product) => {
-      map.set(product.abbreviation, product);
-    });
-  });
-
-  supplementalProducts.forEach((product) => {
-    map.set(product.abbreviation, product);
-  });
-
-  return Array.from(map.values()).sort((a, b) => a.abbreviation.localeCompare(b.abbreviation));
-})();
-
-function buildSeedVehiclesWithProductVariance(vehicles: Vehicle[]) {
-  return vehicles.map((vehicle, index) => {
-    const targetCount = index % 5;
-
-    if (targetCount === 0) {
-      return { ...vehicle, products: [] };
-    }
-
-    const selectedProducts = [...vehicle.products];
-    const seen = new Set(selectedProducts.map((product) => product.abbreviation));
-    let cursor = index;
-
-    while (selectedProducts.length < targetCount && baseProductCatalog.length > 0) {
-      const candidate = baseProductCatalog[cursor % baseProductCatalog.length];
-      if (!seen.has(candidate.abbreviation)) {
-        selectedProducts.push(candidate);
-        seen.add(candidate.abbreviation);
-      }
-      cursor += 1;
-      if (cursor > baseProductCatalog.length * 3) {
-        break;
-      }
-    }
-
-    return { ...vehicle, products: selectedProducts.slice(0, targetCount) };
-  });
-}
-
-const seededVehicles = buildSeedVehiclesWithProductVariance(seedVehicles);
-
-const columnWidths: Record<string, number> = {
-  Select: 44,
-  Vehicle: 128,
-  Customer: 128,
-  VIN: 160,
-  Make: 88,
-  Model: 110,
-  Year: 70,
-  'Product Status': 220,
-};
-
-const columnAlignments: Record<string, 'center' | 'left' | 'right'> = {
-  Select: 'center',
-  Vehicle: 'center',
-  Customer: 'center',
-  VIN: 'center',
-  Make: 'center',
-  Model: 'center',
-  Year: 'center',
-  'Product Status': 'center',
-};
-
-type YearFilter = (typeof yearOptions)[number];
-type ActivityFilter = (typeof activityOptions)[number];
-
-function getDefaultProductStatus(vehicle: Vehicle, product: ProductInfo): ProductAssignmentStatus {
-  if (product.abbreviation === 'CMP' || product.abbreviation === 'CNS') {
-    return 'pending';
-  }
-
-  if (vehicle.activity === 'Online') {
-    return 'active';
-  }
-
-  if (vehicle.activity === 'Paused') {
-    return 'pending';
-  }
-
-  return 'error';
-}
-
-function buildInitialProductStatusMap(vehicles: Vehicle[]) {
-  return vehicles.reduce<Record<string, Record<string, ProductAssignmentStatus>>>((acc, vehicle) => {
-    acc[vehicle.vehicleId] = vehicle.products.reduce<Record<string, ProductAssignmentStatus>>((productAcc, product) => {
-      productAcc[product.abbreviation] = getDefaultProductStatus(vehicle, product);
-      return productAcc;
-    }, {});
-    return acc;
-  }, {});
-}
-
-function matchesSearch(vehicle: Vehicle, searchTerm: string) {
-  if (!searchTerm) return true;
-
-  const normalized = searchTerm.toLowerCase();
-  const customerName = customers.find((customer) => customer.customerId === vehicle.customerId)?.name ?? '';
-
-  return [vehicle.name, vehicle.vin, vehicle.make, vehicle.model, customerName, vehicle.customerId, String(vehicle.year)]
-    .join(' ')
-    .toLowerCase()
-    .includes(normalized);
-}
-
-function VehicleDetailDrawer({
-  vehicle,
-  isOpen,
-  onAddProducts,
-}: {
-  vehicle: Vehicle | null;
-  isOpen: boolean;
-  onAddProducts: (vehicleId: string) => void;
-}) {
-  const customer = vehicle ? customers.find((entry) => entry.customerId === vehicle.customerId) : null;
-
-  return (
-    <aside
-      style={{
-        width: isOpen ? drawerWidth : 0,
-        minWidth: isOpen ? drawerWidth : 0,
-        maxWidth: isOpen ? drawerWidth : 0,
-        overflow: 'hidden',
-        transition: 'width 220ms ease, min-width 220ms ease, max-width 220ms ease',
-        borderLeft: isOpen ? '1px solid #e5e7eb' : '1px solid transparent',
-        background: '#fff',
-        boxShadow: isOpen ? '-12px 0 24px rgba(15, 23, 42, 0.06)' : 'none',
-      }}
-    >
-      <div
-        style={{
-          width: drawerWidth,
-          transform: isOpen ? 'translateX(0)' : 'translateX(18px)',
-          opacity: isOpen ? 1 : 0,
-          transition: 'transform 220ms ease, opacity 180ms ease',
-          height: '100%',
-          overflowY: 'auto',
-          scrollbarGutter: 'stable',
-        }}
-      >
-        {!vehicle ? (
-          <div style={{ padding: 24, color: '#6b7280', display: 'flex', alignItems: 'center', height: '100%' }}>
-            Select a vehicle to view details.
-          </div>
-        ) : (
-          <div style={{ padding: '24px 24px 32px', display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
-            <div>
-              <p style={{ margin: 0, color: '#6b7280', letterSpacing: 1.1, fontSize: 12, textTransform: 'uppercase' }}>Vehicle details</p>
-              <h2 style={{ margin: '8px 0 0', fontSize: 28, lineHeight: 1.1 }}>{vehicle.name}</h2>
-              <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: 999,
-                    background: activityColors[vehicle.activity].bg,
-                    color: activityColors[vehicle.activity].text,
-                    border: `1px solid ${activityColors[vehicle.activity].border}`,
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {vehicle.activity}
-                </span>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>Last seen {vehicle.lastSeen}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onAddProducts(vehicle.vehicleId)}
-                style={{
-                  marginTop: 12,
-                  padding: '7px 12px',
-                  borderRadius: 10,
-                  border: '1px solid #bfdbfe',
-                  background: '#eff6ff',
-                  color: '#1d4ed8',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Add products
-              </button>
-            </div>
-
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
-              {[
-                { label: 'VIN', value: vehicle.vin, monospace: true },
-                { label: 'Make / Model / Year', value: `${vehicle.make} ${vehicle.model} ${vehicle.year}` },
-                { label: 'Customer', value: customer?.name ?? vehicle.customerId },
-              ].map((item, index) => (
-                <div
-                  key={item.label}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '110px minmax(0, 1fr)',
-                    gap: 10,
-                    alignItems: 'start',
-                    padding: '11px 12px',
-                    borderTop: index === 0 ? 'none' : '1px solid #f3f4f6',
-                    background: '#fff',
-                  }}
-                >
-                  <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>{item.label}</div>
-                  <div
-                    style={{
-                      marginTop: 1,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: '#111827',
-                      fontFamily: item.monospace ? 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' : 'inherit',
-                      wordBreak: item.monospace ? 'normal' : 'normal',
-                      overflowWrap: item.monospace ? 'normal' : 'anywhere',
-                      whiteSpace: item.monospace ? 'nowrap' : 'normal',
-                      overflow: item.monospace ? 'hidden' : 'visible',
-                      textOverflow: item.monospace ? 'ellipsis' : 'clip',
-                    }}
-                    title={item.monospace ? String(item.value) : undefined}
-                  >
-                    {item.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <div style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1, marginBottom: 8 }}>Fleet metrics</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
-                {[
-                  { label: 'Health score', value: `${vehicle.healthScore ?? 0}` },
-                  { label: 'Status', value: vehicle.activity },
-                  { label: 'Telemetry', value: vehicle.activity === 'Online' ? 'Live stream' : 'No live feed' },
-                  { label: 'Products', value: `${vehicle.products.length} assigned` },
-                ].map((item) => (
-                  <div key={item.label} style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.8 }}>{item.label}</div>
-                    <div style={{ marginTop: 6, fontSize: 15, fontWeight: 700, color: '#111827' }}>{item.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1, marginBottom: 8 }}>Assigned products</div>
-              <ProductTagTooltip products={vehicle.products} columnCount={1} />
-            </div>
-
-            {customer && (
-              <div style={{ marginTop: 'auto', paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
-                <div style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1, marginBottom: 8 }}>Customer context</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{customer.name}</div>
-                <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>{customer.region ?? 'Unknown region'}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-}
+import { customers } from '../../../data/customers';
+import ProductAssignmentModal from '../../../shared/components/ProductAssignmentModal';
+import type { ProductAssignmentPayload, ProductAssignmentStatus } from '../../../shared/components/ProductAssignmentModal';
+import type { Vehicle } from '../../../types/customer';
+import { useUser } from '../../../context/UserContext';
+import { userCanViewVehicle } from '../../management/components/rolePermissions';
+import VehicleDetailDrawer from '../VehicleDetailDrawer';
+import {
+  activityOptions,
+  buildInitialProductStatusMap,
+  buildProductCatalog,
+  columnAlignments,
+  columnWidths,
+  drawerWidth,
+  formatProductShortCode,
+  getDefaultProductStatus,
+  matchesVehicleSearch,
+  productStatusColors,
+  seededVehicles,
+  type ActivityFilter,
+  type YearFilter,
+  yearOptions,
+} from '../vehiclePageData';
 
 export default function VehiclesPage() {
   const { currentUser } = useUser();
@@ -327,27 +42,7 @@ export default function VehiclesPage() {
   );
 
   const productCatalog = useMemo(() => {
-    const map = new Map<string, ProductInfo>();
-
-    customers.forEach((customer) => {
-      customer.products.forEach((product) => {
-        map.set(product.abbreviation, product);
-      });
-    });
-
-    vehicles.forEach((vehicle) => {
-      vehicle.products.forEach((product) => {
-        map.set(product.abbreviation, product);
-      });
-    });
-
-    supplementalProducts.forEach((product) => {
-      if (!map.has(product.abbreviation)) {
-        map.set(product.abbreviation, product);
-      }
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.abbreviation.localeCompare(b.abbreviation));
+    return buildProductCatalog(vehicles);
   }, [vehicles]);
 
   const visibleVehicles = useMemo(() => {
@@ -372,7 +67,7 @@ export default function VehiclesPage() {
   const filteredVehicles = useMemo(() => {
     return visibleVehicles.filter((vehicle) => {
       const customerName = customers.find((customer) => customer.customerId === vehicle.customerId)?.name ?? vehicle.customerId;
-      const searchMatches = matchesSearch(vehicle, searchTerm);
+      const searchMatches = matchesVehicleSearch(vehicle, searchTerm);
       const customerMatches = customerFilter === 'All Customers' || customerName === customerFilter;
       const makeMatches = makeFilter === 'All Makes' || vehicle.make === makeFilter;
       const modelMatches = modelFilter === 'All Models' || vehicle.model === modelFilter;
@@ -380,7 +75,7 @@ export default function VehiclesPage() {
       const yearMatches = yearFilter === 'All Years' || String(vehicle.year) === yearFilter;
       return searchMatches && customerMatches && makeMatches && modelMatches && activityMatches && yearMatches;
     });
-  }, [activityFilter, customerFilter, currentUser, makeFilter, modelFilter, searchTerm, visibleVehicles, yearFilter]);
+  }, [activityFilter, customerFilter, makeFilter, modelFilter, searchTerm, visibleVehicles, yearFilter]);
 
   const selectedVehicle = useMemo(() => {
     return filteredVehicles.find((vehicle) => vehicle.vehicleId === selectedVehicleId) ?? filteredVehicles[0] ?? null;

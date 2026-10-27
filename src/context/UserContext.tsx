@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Role } from '../navigation/types';
-import { DEFAULT_ROLE_PERMISSIONS, ROLE_HIERARCHY } from '../components/rolePermissions.ts';
+import { DEFAULT_ROLE_PERMISSIONS, ROLE_HIERARCHY } from '../features/management/components/rolePermissions';
+import { seedUsers, toSessionUser } from './utils/userSeed';
+import { loadSessionContext, saveSessionContext } from './utils/sessionStorage';
 
 export interface User {
   user_id: string;
@@ -45,85 +47,12 @@ interface UserContextType {
   effectiveRoles: Role[];
   effectivePermissions: string[];
   setCurrentUser: (user: User | null) => void;
-  setUserAccessProfile: (userId: string, updates: Partial<Pick<SessionUser, 'role' | 'permissions' | 'manager_user_id' | 'status'>>) => void;
+  setUserAccessProfile: (userId: string, updates: Partial<Pick<SessionUser, 'role' | 'permissions' | 'manager_user_id' | 'status' | 'managed_customer_ids'>>) => void;
   handleLoginSuccess: (payload: LoginResult) => void;
   logout: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
-
-const STORAGE_KEY = 'mock-dashboard-session-context';
-
-const seedUsers: SessionUser[] = [
-  {
-    user_id: 'USR-001',
-    name: 'Alice Patel',
-    email: 'alice@example.com',
-    manager_user_id: null,
-    role: 'admin',
-    permissions: DEFAULT_ROLE_PERMISSIONS.admin,
-    status: 'active',
-    managed_customer_ids: ['CUST-000124', 'CUST-000208', 'CUST-000311', 'CUST-000415'],
-  },
-  {
-    user_id: 'USR-002',
-    name: 'Bob Stone',
-    email: 'bob@example.com',
-    manager_user_id: 'USR-001',
-    role: 'sysadmin',
-    permissions: DEFAULT_ROLE_PERMISSIONS.sysadmin,
-    status: 'active',
-    managed_customer_ids: ['CUST-000509', 'CUST-000622', 'CUST-000714'],
-  },
-  {
-    user_id: 'USR-003',
-    name: 'Carol Lee',
-    email: 'carol@example.com',
-    manager_user_id: 'USR-001',
-    role: 'user',
-    permissions: DEFAULT_ROLE_PERMISSIONS.user,
-    status: 'active',
-    managed_customer_ids: ['CUST-000124', 'CUST-000415'],
-  },
-  {
-    user_id: 'USR-004',
-    name: 'David Raj',
-    email: 'david@example.com',
-    manager_user_id: 'USR-002',
-    role: 'user',
-    permissions: ['dashboard:view', 'vehicles:view'],
-    status: 'pending',
-    managed_customer_ids: ['CUST-000208'],
-  },
-  {
-    user_id: 'USR-005',
-    name: 'Eva Martinez',
-    email: 'eva@example.com',
-    manager_user_id: null,
-    role: 'admin',
-    permissions: DEFAULT_ROLE_PERMISSIONS.admin,
-    status: 'active',
-    managed_customer_ids: ['CUST-000801', 'CUST-000509', 'CUST-000622'],
-  },
-];
-
-function toSessionUser(user: User | null): SessionUser | null {
-  if (!user) return null;
-
-  const fromSeed = seedUsers.find((item) => item.user_id === user.user_id);
-  if (fromSeed) return fromSeed;
-
-  return {
-    user_id: user.user_id,
-    name: user.name,
-    email: user.email,
-    manager_user_id: user.manager_user_id ?? null,
-    role: 'user',
-    permissions: DEFAULT_ROLE_PERMISSIONS.user,
-    status: 'active',
-    managed_customer_ids: [],
-  };
-}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<SessionUser[]>(seedUsers);
@@ -133,14 +62,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as {
-          users?: SessionUser[];
-          currentUser?: SessionUser | null;
-          session?: SessionState | null;
-        };
-
+      const parsed = loadSessionContext();
+      if (parsed) {
         if (Array.isArray(parsed.users) && parsed.users.length) {
           setUsers(parsed.users);
         }
@@ -163,14 +86,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        users,
-        currentUser,
-        session,
-      }),
-    );
+    saveSessionContext({ users, currentUser, session });
   }, [users, currentUser, session, isLoading]);
 
   const effectiveRoles = useMemo<Role[]>(() => {

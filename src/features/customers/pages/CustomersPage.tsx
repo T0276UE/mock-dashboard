@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import ProductAssignmentModal from '../components/ProductAssignmentModal';
-import { customers, vehicles } from '../data/customers';
-import ProductTagTooltip from '../components/ProductTagTooltip';
+import ProductAssignmentModal from '../../../shared/components/ProductAssignmentModal';
+import { customers, vehicles } from '../../../data/customers';
+import ProductTagTooltip from '../../../shared/components/ProductTagTooltip';
 import CustomerDetailPage from './CustomerDetailPage';
-import { useUser } from '../context/UserContext';
-import { userCanManageCustomer, userCanViewCustomer } from '../components/rolePermissions';
-import type { Customer, ProductInfo } from '../types/customer';
+import { useUser } from '../../../context/UserContext';
+import { userCanManageCustomer, userCanViewCustomer } from '../../management/components/rolePermissions';
+import { navigateToCustomerDetail as navigateToCustomerDetailPath } from '../../../services/navigationService';
+import type { Customer, ProductInfo } from '../../../types/customer';
 
 const statusColors: Record<string, { bg: string; text: string; border: string }> = {
   Active: { bg: '#ecfdf5', text: '#15803d', border: '#86efac' },
@@ -48,8 +49,7 @@ export default function CustomersPage() {
 
   const navigateToCustomerDetail = (customerId: string) => {
     setSelectedCustomerId(customerId);
-    window.history.pushState({}, '', `/customer/${customerId}`);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    navigateToCustomerDetailPath(customerId);
   };
 
   const openEnrichmentForCustomer = (customerId: string) => {

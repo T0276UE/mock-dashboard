@@ -1,6 +1,7 @@
-    import { useMemo } from 'react';
-import { customers, vehicles } from '../data/customers';
-import ProductTagTooltip from '../components/ProductTagTooltip';
+import { useMemo } from 'react';
+import { customers, vehicles } from '../../../data/customers';
+import ProductTagTooltip from '../../../shared/components/ProductTagTooltip';
+import { navigateToCustomers } from '../../../services/navigationService';
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   Active: { bg: '#ecfdf5', text: '#15803d' },
@@ -124,10 +125,7 @@ export default function CustomerDetailPage({ customerId, isPanel = false }: Cust
     <div style={{ maxWidth: 1400, margin: '0 auto' }}>
       <header style={{ marginBottom: 24 }}>
         <button
-          onClick={() => {
-            window.history.pushState({}, '', '/customers');
-            window.dispatchEvent(new PopStateEvent('popstate'));
-          }}
+          onClick={navigateToCustomers}
           style={{
             background: 'none',
             border: 'none',

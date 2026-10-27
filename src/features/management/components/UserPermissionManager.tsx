@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useUser } from '../context/UserContext.tsx';
-import type { Role } from '../navigation/types';
+import { useUser } from '../../../context/UserContext.tsx';
+import type { Role } from '../../../navigation/types';
 import { RoleSelector } from './RoleSelector';
 import { ROLE_PERMISSIONS, canAssignRole, canEditUserAccess, getAccessNotice } from './rolePermissions';
 

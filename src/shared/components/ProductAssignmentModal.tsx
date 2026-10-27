@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Customer, ProductInfo, Vehicle } from '../types/customer';
+import type { Customer, ProductInfo, Vehicle } from '../../types/customer';
 import { formatProductShortCode } from './ProductTagTooltip';
 
 export type AssignmentSourcePage = 'products' | 'customers' | 'vehicles';

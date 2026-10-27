@@ -1,5 +1,5 @@
-import DashboardHeader from '../features/dashboard/dashboard-header'
-import DashboardFooter from '../features/dashboard/dashboard-footer'
+import DashboardHeader from '../dashboard-header'
+import DashboardFooter from '../dashboard-footer'
 
 function Dashboard() {
   return (

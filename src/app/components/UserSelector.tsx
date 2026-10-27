@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser, type User } from '../context/UserContext.tsx';
+import { useUser, type User } from '../../context/UserContext.tsx';
 
 export function UserSelector() {
   const { currentUser, setCurrentUser, users: sessionUsers } = useUser();

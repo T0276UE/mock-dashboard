@@ -1,4 +1,4 @@
-import type { Role } from '../navigation/types';
+import type { Role } from '../../../navigation/types';
 
 export interface AccessActor {
   user_id: string;

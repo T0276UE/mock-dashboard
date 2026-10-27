@@ -1,4 +1,4 @@
-import type { Role } from '../navigation/types';
+import type { Role } from '../../../navigation/types';
 import { ROLE_LABELS, ROLE_OPTIONS } from './rolePermissions';
 
 interface RoleSelectorProps {

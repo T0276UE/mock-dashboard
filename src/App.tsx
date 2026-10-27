@@ -1,17 +1,17 @@
 import './App.css';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import NavBar from './components/NavBar';
-import UserSelector from './components/UserSelector';
+import NavBar from './app/components/NavBar';
+import UserSelector from './app/components/UserSelector';
 import { useUser } from './context/UserContext.tsx';
 import { routes } from './navigation/routes';
-import LandingPage from './pages/LandingPage';
-import CustomersPage from './pages/CustomersPage';
-import CustomerDetailPage from './pages/CustomerDetailPage';
-import ProductsPage from './pages/ProductsPage';
-import VehiclesPage from './pages/VehiclesPage';
-import CompatibilityPage from './pages/CompatibilityPage';
-import ManagementPage from './pages/ManagementPage';
+import LandingPage from './features/landing/pages/LandingPage';
+import CustomersPage from './features/customers/pages/CustomersPage';
+import CustomerDetailPage from './features/customers/pages/CustomerDetailPage';
+import ProductsPage from './features/products/pages/ProductsPage';
+import VehiclesPage from './features/vehicles/pages/VehiclesPage';
+import CompatibilityPage from './features/compatibility/pages/CompatibilityPage';
+import ManagementPage from './features/management/pages/ManagementPage';
 import type { Role } from './navigation/types';
 
 const pageMap = {
