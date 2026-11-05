@@ -7,5 +7,6 @@ export interface NavRoute {
   component?: string;
   exact?: boolean;
   requiredRoles?: Role[];
+  requiredPermissions?: string[];
   icon?: string;
 }

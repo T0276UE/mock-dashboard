@@ -1,0 +1,67 @@
+[
+  {
+    "user_id": "USR-001",
+    "name": "Alice Patel",
+    "email": "alice@example.com",
+    "manager_user_id": null,
+    "role": "admin",
+    "permissions": "[\"dashboard:view\",\"customers:manage\",\"vehicles:manage\",\"users:manage\"]",
+    "status": "active",
+    "last_login": null,
+    "is_active": 1,
+    "created_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)",
+    "updated_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)"
+  },
+  {
+    "user_id": "USR-002",
+    "name": "Bob Stone",
+    "email": "bob@example.com",
+    "manager_user_id": "USR-001",
+    "role": "sysadmin",
+    "permissions": "[\"dashboard:view\",\"customers:manage\",\"vehicles:view\",\"users:manage\"]",
+    "status": "active",
+    "last_login": null,
+    "is_active": 1,
+    "created_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)",
+    "updated_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)"
+  },
+  {
+    "user_id": "USR-003",
+    "name": "Carol Lee",
+    "email": "carol@example.com",
+    "manager_user_id": "USR-001",
+    "role": "user",
+    "permissions": "[\"dashboard:view\",\"customers:view\"]",
+    "status": "active",
+    "last_login": null,
+    "is_active": 1,
+    "created_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)",
+    "updated_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)"
+  },
+  {
+    "user_id": "USR-004",
+    "name": "David Raj",
+    "email": "david@example.com",
+    "manager_user_id": "USR-002",
+    "role": "user",
+    "permissions": "[\"dashboard:view\",\"vehicles:view\"]",
+    "status": "pending",
+    "last_login": null,
+    "is_active": 1,
+    "created_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)",
+    "updated_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)"
+  },
+  {
+    "user_id": "USR-005",
+    "name": "Eva Martinez",
+    "email": "eva@example.com",
+    "manager_user_id": null,
+    "role": "admin",
+    "permissions": "[\"dashboard:view\",\"customers:manage\",\"vehicles:manage\",\"users:manage\"]",
+    "status": "active",
+    "last_login": null,
+    "is_active": 1,
+    "created_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)",
+    "updated_at": "Mon Oct 26 2026 20:00:00 GMT-0400 (Eastern Daylight Time)"
+  }
+]

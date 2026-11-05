@@ -1,0 +1,2 @@
+rowNumber,issues,vin,customer,customerID,testVehicle,make,model,year,vehicleId,name
+"2","VIN must be 11-17 chars and exclude I/O/Q. | year must be a 4-digit value when provided.","BADVIN","","CUST-000124","no","Jeep","Compass","20AB","",""

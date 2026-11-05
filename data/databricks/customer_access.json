@@ -1,0 +1,97 @@
+[
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000124",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000208",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000311",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000415",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000509",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000622",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000714",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-001",
+    "customer_id": "CUST-000801",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-002",
+    "customer_id": "CUST-000124",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-002",
+    "customer_id": "CUST-000208",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-002",
+    "customer_id": "CUST-000311",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-002",
+    "customer_id": "CUST-000415",
+    "granted_by": "USR-001"
+  },
+  {
+    "user_id": "USR-003",
+    "customer_id": "CUST-000124",
+    "granted_by": "USR-002"
+  },
+  {
+    "user_id": "USR-003",
+    "customer_id": "CUST-000208",
+    "granted_by": "USR-002"
+  },
+  {
+    "user_id": "USR-004",
+    "customer_id": "CUST-000415",
+    "granted_by": "USR-002"
+  },
+  {
+    "user_id": "USR-004",
+    "customer_id": "CUST-000509",
+    "granted_by": "USR-002"
+  },
+  {
+    "user_id": "USR-005",
+    "customer_id": "CUST-000622",
+    "granted_by": "USR-005"
+  },
+  {
+    "user_id": "USR-005",
+    "customer_id": "CUST-000714",
+    "granted_by": "USR-005"
+  },
+  {
+    "user_id": "USR-005",
+    "customer_id": "CUST-000801",
+    "granted_by": "USR-005"
+  }
+]
