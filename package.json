@@ -8,9 +8,16 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "db:seed": "npx tsx data/seed-users.js"
+    "db:seed": "npx tsx data/seed-users.js",
+    "databricks:sync-access": "node --env-file=.env data/sync-databricks-access.mjs",
+    "databricks:discover": "node --env-file=.env data/sync-databricks-access.mjs --discover",
+    "databricks:upload-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs",
+    "databricks:validate-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs --validate-only"
   },
   "dependencies": {
+    "@databricks/sdk-postgres": "^0.52.6",
+    "@databricks/sql": "^2.4.0",
+    "csv-parse": "^7.0.3",
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "react": "^19.2.8",

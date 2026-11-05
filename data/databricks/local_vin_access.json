@@ -1,0 +1,115 @@
+[
+    {
+        "vehicleId": "LV-0001",
+        "customerID": "CUST-000124",
+        "pendingCustomerID": null,
+        "testvehicle": true,
+        "vin": "1HGCM82633A764219",
+        "name": "7JXK194",
+        "make": "Jeep",
+        "model": "Grand Cherokee",
+        "year": "2024",
+        "timestamp": "2026-11-05T09:00:00.000Z",
+        "uploaderUserID": "USR-001"
+    },
+    {
+        "vehicleId": "LV-0002",
+        "customerID": "CUST-000208",
+        "pendingCustomerID": [
+            "87d5a40a-3a31-4d37-bd70-73fd5de7ccf7"
+        ],
+        "testvehicle": false,
+        "vin": "1FTFW1E50NFA55217",
+        "name": "8RMD552",
+        "make": "Ram",
+        "model": "1500",
+        "year": "2022",
+        "timestamp": "2026-11-05T09:05:00.000Z",
+        "uploaderUserID": "USR-002"
+    },
+    {
+        "vehicleId": "LV-0003",
+        "customerID": "CUST-000311",
+        "pendingCustomerID": null,
+        "testvehicle": true,
+        "vin": "WVWZZZ1JZXW873541",
+        "name": "6TQP318",
+        "make": "Dodge",
+        "model": "Durango",
+        "year": "2023",
+        "timestamp": "2026-11-05T09:10:00.000Z",
+        "uploaderUserID": "USR-003"
+    },
+    {
+        "vehicleId": "LV-0004",
+        "customerID": "CUST-000415",
+        "pendingCustomerID": [
+            "d3cc2a41-8776-4ffc-ae8b-6f16f03a9674",
+            "4c870162-e5e1-4343-bf95-2b2f1f090f8d"
+        ],
+        "testvehicle": false,
+        "vin": "2C3KA53G76H998234",
+        "name": "4NLE204",
+        "make": "Chrysler",
+        "model": "Pacifica",
+        "year": "2021",
+        "timestamp": "2026-11-05T09:15:00.000Z",
+        "uploaderUserID": "USR-002"
+    },
+    {
+        "vehicleId": "LV-0005",
+        "customerID": "CUST-000509",
+        "pendingCustomerID": null,
+        "testvehicle": true,
+        "vin": "5YJ3E1EA7KF662901",
+        "name": "9VCK770",
+        "make": "Alfa Romeo",
+        "model": "Tonale",
+        "year": "2024",
+        "timestamp": "2026-11-05T09:20:00.000Z",
+        "uploaderUserID": "USR-005"
+    },
+    {
+        "vehicleId": "LV-0006",
+        "customerID": "CUST-000622",
+        "pendingCustomerID": [
+            "6efb78c7-478f-4eb5-9b2f-31a6bc5fd99b"
+        ],
+        "testvehicle": false,
+        "vin": "1N4AL3AP8EC587130",
+        "name": "5BRX611",
+        "make": "Ram",
+        "model": "ProMaster",
+        "year": "2022",
+        "timestamp": "2026-11-05T09:25:00.000Z",
+        "uploaderUserID": "USR-004"
+    },
+    {
+        "vehicleId": "LV-0007",
+        "customerID": "CUST-000714",
+        "pendingCustomerID": null,
+        "testvehicle": false,
+        "vin": "WAUZZZ8V4GA784320",
+        "name": "2YLP442",
+        "make": "Dodge",
+        "model": "Charger",
+        "year": "2021",
+        "timestamp": "2026-11-05T09:30:00.000Z",
+        "uploaderUserID": "USR-003"
+    },
+    {
+        "vehicleId": "LV-0008",
+        "customerID": "CUST-000801",
+        "pendingCustomerID": [
+            "e9e8b70c-ae58-4f6e-80f0-d19fdbcc1ad8"
+        ],
+        "testvehicle": false,
+        "vin": "3FA6P0HD1KR447892",
+        "name": "1HSA905",
+        "make": "Ram",
+        "model": "1500",
+        "year": "2022",
+        "timestamp": "2026-11-05T09:35:00.000Z",
+        "uploaderUserID": "USR-001"
+    }
+]

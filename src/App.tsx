@@ -27,7 +27,7 @@ function App() {
   const [path, setPath] = useState(() => window.location.pathname);
   const [isNavPinned, setIsNavPinned] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
-  const { effectiveRoles } = useUser();
+  const { effectiveRoles, effectivePermissions } = useUser();
 
   useEffect(() => {
     const handleRouteChange = () => setPath(window.location.pathname);
@@ -55,6 +55,7 @@ function App() {
     <div className="app-shell">
       <NavBar
         userRoles={getUserRoles()}
+        userPermissions={effectivePermissions}
         expanded={isNavExpanded}
         pinned={isNavPinned}
         onHoverChange={setIsNavHovered}

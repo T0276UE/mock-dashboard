@@ -2,12 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '../../../context/UserContext.tsx';
 import type { Role } from '../../../navigation/types';
 import { RoleSelector } from './RoleSelector';
-import { ROLE_PERMISSIONS, canAssignRole, canEditUserAccess, getAccessNotice } from './rolePermissions';
+import { DEFAULT_ROLE_PERMISSIONS, ROLE_PERMISSIONS, canAssignRole, canEditUserAccess, getAccessNotice } from './rolePermissions';
+import { customers } from '../../../data/customers';
 
 export function UserPermissionManager() {
-  const { users, currentUser, setUserAccessProfile, session } = useUser();
+  const {
+    users,
+    currentUser,
+    setUserAccessProfile,
+    session,
+    grantCustomerAccessToUser,
+    revokeCustomerAccessFromUser,
+    isSyncingAccess,
+    syncError,
+  } = useUser();
   const [selectedUserId, setSelectedUserId] = useState('');
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [updatingKey, setUpdatingKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!users.length) return;
@@ -30,6 +41,15 @@ export function UserPermissionManager() {
   const selectedRole = selectedUser?.role ?? 'user';
   const canEditSelectedUser = canEditUserAccess(currentUser, selectedUser);
   const accessNotice = getAccessNotice(currentUser, selectedUser);
+  const customerOptions = useMemo(
+    () => customers.map((customer) => ({ id: customer.customerId, name: customer.name })),
+    [],
+  );
+  const canManageCustomerAccess = currentUser?.role === 'admin';
+  const manageableUsers = useMemo(
+    () => users.filter((user) => user.user_id !== currentUser?.user_id),
+    [users, currentUser?.user_id],
+  );
 
   const updateRoleForSelectedUser = (nextRole: Role) => {
     if (!selectedUser || !currentUser) return;
@@ -37,10 +57,29 @@ export function UserPermissionManager() {
 
     setUserAccessProfile(selectedUser.user_id, {
       role: nextRole,
-      permissions: ROLE_PERMISSIONS[nextRole],
+      permissions: DEFAULT_ROLE_PERMISSIONS[nextRole],
     });
 
     setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  };
+
+  const handleCustomerAccessToggle = async (userId: string, customerId: string, isChecked: boolean) => {
+    if (!canManageCustomerAccess) return;
+
+    const key = `${userId}:${customerId}`;
+    setUpdatingKey(key);
+
+    try {
+      if (isChecked) {
+        await grantCustomerAccessToUser(userId, customerId);
+      } else {
+        await revokeCustomerAccessFromUser(userId, customerId);
+      }
+
+      setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } finally {
+      setUpdatingKey(null);
+    }
   };
 
   return (
@@ -121,6 +160,77 @@ export function UserPermissionManager() {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 20 }}>Customer Access Matrix</h3>
+          <div style={{ color: '#6b7280', fontSize: 12 }}>
+            {canManageCustomerAccess ? 'Admins can update customer access.' : 'Admin-only control'}
+          </div>
+        </div>
+
+        {syncError && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid #fecaca',
+              background: '#fef2f2',
+              color: '#991b1b',
+              fontSize: 12,
+            }}
+          >
+            {syncError}
+          </div>
+        )}
+
+        <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 12 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+            <thead style={{ background: '#f8fafc' }}>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 12 }}>User</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 12 }}>Role</th>
+                {customerOptions.map((customer) => (
+                  <th key={customer.id} style={{ textAlign: 'center', padding: '10px 8px', borderBottom: '1px solid #e5e7eb', fontSize: 11 }} title={customer.name}>
+                    <div>{customer.name}</div>
+                    <div style={{ color: '#64748b', fontWeight: 500 }}>{customer.id}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {manageableUsers.map((user) => (
+                <tr key={user.user_id} style={{ borderTop: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '10px 12px', fontSize: 13 }}>
+                    <div style={{ fontWeight: 600 }}>{user.name}</div>
+                    <div style={{ color: '#6b7280' }}>{user.user_id}</div>
+                  </td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, color: '#475569', textTransform: 'capitalize' }}>{user.role}</td>
+                  {customerOptions.map((customer) => {
+                    const checked = user.managed_customer_ids.includes(customer.id);
+                    const key = `${user.user_id}:${customer.id}`;
+                    const disabled = !canManageCustomerAccess || isSyncingAccess || updatingKey === key;
+
+                    return (
+                      <td key={key} style={{ textAlign: 'center', padding: '10px 8px' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={(event) => {
+                            void handleCustomerAccessToggle(user.user_id, customer.id, event.target.checked);
+                          }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import '../../navigation/nav.css';
 
 export interface NavBarProps {
   userRoles?: Role[];
+  userPermissions?: string[];
   expanded: boolean;
   onHoverChange: (hovered: boolean) => void;
   onTogglePinned: () => void;
@@ -21,12 +22,13 @@ export interface NavBarProps {
 
 export const NavBar: React.FC<NavBarProps> = ({
   userRoles = ['user'],
+  userPermissions = [],
   expanded,
   onHoverChange,
   onTogglePinned,
   pinned,
 }) => {
-  const visible = routes.filter((r) => hasAccess(userRoles, r));
+  const visible = routes.filter((r) => hasAccess(userRoles, userPermissions, r));
   const routeIcons: Record<string, string> = {
     landing: landingPageIcon,
     customers: customersIcon,

@@ -22,6 +22,7 @@ import {
   type YearFilter,
   yearOptions,
 } from '../vehiclePageData';
+import VinUploadModal from '../VinUploadModal';
 
 export default function VehiclesPage() {
   const { currentUser } = useUser();
@@ -36,6 +37,7 @@ export default function VehiclesPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(Boolean(vehicles[0]));
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isVinUploadModalOpen, setIsVinUploadModalOpen] = useState(false);
   const [modalTargetVehicleIds, setModalTargetVehicleIds] = useState<string[]>([]);
   const [productStatusByVehicle, setProductStatusByVehicle] = useState<Record<string, Record<string, ProductAssignmentStatus>>>(() =>
     buildInitialProductStatusMap(seededVehicles),
@@ -375,6 +377,23 @@ export default function VehiclesPage() {
           <div style={{ display: 'grid', gap: 2, minWidth: 0, flex: '0 0 auto', alignSelf: 'end', marginBottom: 2 }}>
             <button
               type="button"
+              onClick={() => setIsVinUploadModalOpen(true)}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 9,
+                border: '1px solid #d1d5db',
+                background: '#ffffff',
+                color: '#334155',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Upload VIN CSV
+            </button>
+            <button
+              type="button"
               onClick={() => openProductModalForVehicles(selectedVehicleIds)}
               disabled={selectedVehicleIds.length === 0}
               style={{
@@ -530,6 +549,12 @@ export default function VehiclesPage() {
         presetVehicleIds={modalTargetVehicleIds}
         title="Assign products to vehicles"
         onConfirm={handleApplyProducts}
+      />
+
+      <VinUploadModal
+        isOpen={isVinUploadModalOpen}
+        onClose={() => setIsVinUploadModalOpen(false)}
+        customers={customers}
       />
     </div>
   );

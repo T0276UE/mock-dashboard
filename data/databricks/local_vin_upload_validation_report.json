@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-11-05T17:46:11.448Z",
+  "sourceFile": "data/databricks/tmp_vins_validate.csv",
+  "summary": {
+    "totalRows": 2,
+    "acceptedRows": 1,
+    "rejectedRows": 1
+  },
+  "rejectedRows": [
+    {
+      "rowNumber": 2,
+      "issues": [
+        "VIN must be 11-17 chars and exclude I/O/Q.",
+        "year must be a 4-digit value when provided."
+      ],
+      "raw": {
+        "vin": "BADVIN",
+        "customerID": "CUST-000124",
+        "testVehicle": "no",
+        "make": "Jeep",
+        "model": "Compass",
+        "year": "20AB"
+      }
+    }
+  ]
+}
