@@ -1,0 +1,24 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: mock-dashboard-backend
+
+databricks:
+  jdbc:
+    url: ${DATABRICKS_JDBC_URL:${VITE_DATABRICKS_JDBC_URL:}}
+    token: ${DATABRICKS_PERSONAL_ACCESS_TOKEN:}
+    username: ${DATABRICKS_USERNAME:token}
+    catalog: ${DATABRICKS_CATALOG:}
+    schema: ${DATABRICKS_SCHEMA:default}
+    customer-access-table: ${DATABRICKS_CUSTOMER_ACCESS_TABLE:customer_access}
+    local-vin-access-table: ${DATABRICKS_LOCAL_VIN_ACCESS_TABLE:local_vin_access}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

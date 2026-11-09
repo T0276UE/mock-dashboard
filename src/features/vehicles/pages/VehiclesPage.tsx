@@ -85,7 +85,7 @@ export default function VehiclesPage() {
 
   const drawerVisible = isDrawerOpen && Boolean(selectedVehicle);
   const visibleColumns = ['Select', 'Vehicle', 'Customer', 'VIN', 'Make', 'Model', 'Year', 'Product Status'];
-  const filteredVehicleIds = filteredVehicles.map((vehicle) => vehicle.vehicleId);
+  const filteredVehicleIds = useMemo(() => filteredVehicles.map((vehicle) => vehicle.vehicleId), [filteredVehicles]);
   const allVisibleSelected =
     filteredVehicleIds.length > 0 && filteredVehicleIds.every((vehicleId) => selectedVehicleIds.includes(vehicleId));
 
@@ -103,7 +103,13 @@ export default function VehiclesPage() {
   }, [filteredVehicles, selectedVehicleId]);
 
   useEffect(() => {
-    setSelectedVehicleIds((previous) => previous.filter((vehicleId) => filteredVehicleIds.includes(vehicleId)));
+    setSelectedVehicleIds((previous) => {
+      const next = previous.filter((vehicleId) => filteredVehicleIds.includes(vehicleId));
+      if (next.length === previous.length && next.every((vehicleId, index) => vehicleId === previous[index])) {
+        return previous;
+      }
+      return next;
+    });
   }, [filteredVehicleIds]);
 
   const handleSelectVehicle = (vehicleId: string) => {

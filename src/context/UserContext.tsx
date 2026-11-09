@@ -12,6 +12,11 @@ import {
   type AccessDataSource,
   type UserAccessProfileUpdate,
 } from '../services/databricksAccessService';
+import {
+  fetchSessionMe,
+  fetchUsers,
+  isBackendSessionEnabled,
+} from '../services/backendApi';
 
 export interface User {
   user_id: string;
@@ -117,6 +122,57 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const bootstrap = async () => {
+      const tryBootstrapFromBackend = async () => {
+        if (!isBackendSessionEnabled()) return false;
+
+        try {
+          const [sessionMe, backendUsers] = await Promise.all([fetchSessionMe(), fetchUsers()]);
+
+          const mappedUsers: SessionUser[] = backendUsers.map((user) => ({
+            user_id: user.userId,
+            name: user.name,
+            email: user.email,
+            manager_user_id: user.managerUserId,
+            role: user.role,
+            permissions: user.permissions,
+            status: user.status,
+            managed_customer_ids: [],
+          }));
+
+          const withManagedCustomers = await Promise.all(
+            mappedUsers.map(async (user) => ({
+              ...user,
+              managed_customer_ids: await getCustomerIdsForUser(user.user_id),
+            })),
+          );
+
+          if (!withManagedCustomers.length) return false;
+
+          setUsers(withManagedCustomers);
+
+          const matchedCurrentUser =
+            withManagedCustomers.find((candidate) => candidate.user_id === sessionMe.userId) ??
+            withManagedCustomers[0];
+
+          setCurrentUserState({
+            ...matchedCurrentUser,
+            permissions: sessionMe.effectivePermissions,
+            managed_customer_ids: sessionMe.managedCustomerIds,
+          });
+
+          setSession({
+            provider: 'external',
+            isAuthenticated: true,
+            issuedAt: new Date().toISOString(),
+          });
+
+          return true;
+        } catch (error) {
+          console.error('Failed to bootstrap session from backend:', error);
+          return false;
+        }
+      };
+
       try {
         const parsed = loadSessionContext();
         if (parsed) {
@@ -137,6 +193,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (!isMounted) return;
+
+      const restoredFromBackend = await tryBootstrapFromBackend();
+
+      if (!isMounted) return;
+
+      if (restoredFromBackend) {
+        setDatabricksSource('databricks-http');
+        setIsLoading(false);
+        return;
+      }
 
       await refreshAccessData();
 

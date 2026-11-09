@@ -2,6 +2,11 @@ import type { Role } from '../navigation/types';
 import type { SessionUser } from '../context/UserContext';
 import { DEFAULT_ROLE_PERMISSIONS } from '../features/management/components/rolePermissions';
 import { seedCustomerAccessRecords, seedUsers } from '../context/utils/userSeed';
+import {
+  fetchUserCustomers,
+  isBackendCustomerAccessFlowEnabled,
+  replaceUserCustomers,
+} from './backendApi';
 
 export type AccessDataSource = 'seed' | 'databricks-local-json' | 'databricks-http';
 
@@ -229,6 +234,10 @@ export async function getCustomerIdsForUser(userId: string): Promise<string[]> {
   const normalizedUserId = userId.trim();
   if (!normalizedUserId) return [];
 
+  if (isBackendCustomerAccessFlowEnabled()) {
+    return fetchUserCustomers(normalizedUserId);
+  }
+
   const rows = await fetchCustomerAccessRows();
   const customerIds = rows
     .filter((row) => row.user_id === normalizedUserId)
@@ -265,9 +274,13 @@ export async function addCustomerToUserAccess(userId: string, customerId: string
   }
 
   const nextCustomerIds = [...currentCustomerIds, normalizedCustomerId];
-  await databricksAccessClient.updateUserAccessProfile(normalizedUserId, {
-    managed_customer_ids: nextCustomerIds,
-  });
+  if (isBackendCustomerAccessFlowEnabled()) {
+    await replaceUserCustomers(normalizedUserId, { customerIds: nextCustomerIds });
+  } else {
+    await databricksAccessClient.updateUserAccessProfile(normalizedUserId, {
+      managed_customer_ids: nextCustomerIds,
+    });
+  }
 
   return nextCustomerIds;
 }
@@ -287,9 +300,13 @@ export async function removeCustomerFromUserAccess(userId: string, customerId: s
     return currentCustomerIds;
   }
 
-  await databricksAccessClient.updateUserAccessProfile(normalizedUserId, {
-    managed_customer_ids: nextCustomerIds,
-  });
+  if (isBackendCustomerAccessFlowEnabled()) {
+    await replaceUserCustomers(normalizedUserId, { customerIds: nextCustomerIds });
+  } else {
+    await databricksAccessClient.updateUserAccessProfile(normalizedUserId, {
+      managed_customer_ids: nextCustomerIds,
+    });
+  }
 
   return nextCustomerIds;
 }

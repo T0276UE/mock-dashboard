@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "backend:run": "mvn -f backend/pom.xml spring-boot:run",
+    "backend:test": "mvn -f backend/pom.xml test",
     "db:seed": "npx tsx data/seed-users.js",
     "databricks:sync-access": "node --env-file=.env data/sync-databricks-access.mjs",
     "databricks:discover": "node --env-file=.env data/sync-databricks-access.mjs --discover",

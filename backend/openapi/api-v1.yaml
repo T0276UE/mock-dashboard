@@ -1,0 +1,391 @@
+openapi: 3.0.3
+info:
+  title: Mock Dashboard API
+  version: v1
+  description: Initial Spring backend bridge for the existing frontend.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Login with selected user profile and create server-side session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Authenticated session payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+
+  /api/v1/auth/switch-user:
+    post:
+      summary: Switch active session profile (MVP context switcher)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Updated authenticated session payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+
+  /api/v1/auth/me:
+    get:
+      summary: Get authenticated server-side session profile
+      responses:
+        '200':
+          description: Current auth session payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '401':
+          description: No authenticated session
+
+  /api/v1/auth/logout:
+    post:
+      summary: Invalidate current server-side session
+      responses:
+        '200':
+          description: Session invalidated
+
+  /api/v1/session/me:
+    get:
+      summary: Get current session context
+      parameters:
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+          description: Mock identity header for dev/testing.
+      responses:
+        '200':
+          description: Session context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionMeResponse'
+
+  /api/v1/users:
+    get:
+      summary: List users
+      responses:
+        '200':
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccessUser'
+
+  /api/v1/users/{userId}/customers:
+    get:
+      summary: Get customer access for a user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '404':
+          description: User not found
+
+  /api/v1/customer-access/{userId}:
+    get:
+      summary: Retrieve customer access rows by user ID
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer access records for user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerAccessRecord'
+    post:
+      summary: Replace customer access rows for user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerAccessRequest'
+      responses:
+        '200':
+          description: Updated customer access records for user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerAccessRecord'
+
+  /api/v1/local-vin-access:
+    get:
+      summary: Retrieve local VIN access rows
+      parameters:
+        - in: query
+          name: vin
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: customerId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Local VIN access records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocalVinAccessRecord'
+    post:
+      summary: Upload local VIN access rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadLocalVinAccessRequest'
+      responses:
+        '200':
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadLocalVinAccessResponse'
+    put:
+      summary: Replace customer access list for a user
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserCustomersRequest'
+      responses:
+        '200':
+          description: Updated customer IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '404':
+          description: User not found
+
+components:
+  schemas:
+    AuthLoginRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+      required: [userId]
+
+    AuthSessionResponse:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        userId:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        effectiveRoles:
+          type: array
+          items:
+            type: string
+        effectivePermissions:
+          type: array
+          items:
+            type: string
+        managedCustomerIds:
+          type: array
+          items:
+            type: string
+        issuedAt:
+          type: string
+      required: [authenticated, userId, name, role, status, effectiveRoles, effectivePermissions, managedCustomerIds, issuedAt]
+
+    AccessUser:
+      type: object
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        managerUserId:
+          type: string
+          nullable: true
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+      required: [userId, name, email, role, permissions, status]
+
+    SessionMeResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        effectiveRoles:
+          type: array
+          items:
+            type: string
+        effectivePermissions:
+          type: array
+          items:
+            type: string
+        managedCustomerIds:
+          type: array
+          items:
+            type: string
+      required: [userId, name, role, status, effectiveRoles, effectivePermissions, managedCustomerIds]
+
+    UpdateUserCustomersRequest:
+      type: object
+      properties:
+        customerIds:
+          type: array
+          items:
+            type: string
+      required: [customerIds]
+
+    CustomerAccessRecord:
+      type: object
+      properties:
+        userId:
+          type: string
+        customerId:
+          type: string
+        grantedBy:
+          type: string
+      required: [userId, customerId, grantedBy]
+
+    UpdateCustomerAccessRequest:
+      type: object
+      properties:
+        customerIds:
+          type: array
+          items:
+            type: string
+        grantedBy:
+          type: string
+      required: [customerIds]
+
+    LocalVinAccessRecord:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+        customerId:
+          type: string
+          nullable: true
+        pendingCustomerId:
+          nullable: true
+        testvehicle:
+          type: boolean
+          nullable: true
+        vin:
+          type: string
+        name:
+          type: string
+          nullable: true
+        make:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        year:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          nullable: true
+        uploaderUserId:
+          type: string
+          nullable: true
+      required: [vehicleId, vin]
+
+    UploadLocalVinAccessRequest:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocalVinAccessRecord'
+      required: [records]
+
+    UploadLocalVinAccessResponse:
+      type: object
+      properties:
+        insertedCount:
+          type: integer
+      required: [insertedCount]

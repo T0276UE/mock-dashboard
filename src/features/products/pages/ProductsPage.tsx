@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import ProductAssignmentModal from '../../../shared/components/ProductAssignmentModal';
 import { customers, vehicles } from '../../../data/customers';
 import type { ProductInfo } from '../../../types/customer';
@@ -213,10 +213,10 @@ export default function ProductsPage() {
                     ['Feature', selectedProductRow.feature],
                     ['Updated', 'Oct 9, 2026'],
                   ].map(([label, value]) => (
-                    <>
+                    <Fragment key={String(label)}>
                       <div key={`${label}-label`} style={{ color: '#64748b' }}>{label}</div>
                       <div key={`${label}-value`} style={{ fontWeight: 600, color: '#111827', textAlign: 'right' }}>{value}</div>
-                    </>
+                    </Fragment>
                   ))}
                 </div>
               </div>
