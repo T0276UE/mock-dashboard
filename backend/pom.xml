@@ -57,6 +57,14 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- PostgreSQL JDBC Driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.14</version>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -67,4 +75,48 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>local-db-migrations</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.flywaydb</groupId>
+                        <artifactId>flyway-maven-plugin</artifactId>
+                        <version>13.12.1</version>
+                        <configuration>
+                            <url>jdbc:postgresql://localhost:5432/marketplace_dev</url>
+                            <user>${env.MARKETPLACE_DB_USER}</user>
+                            <password>${env.MARKETPLACE_DB_PASSWORD}</password>
+                            <locations>
+                                <location>filesystem:src/main/resources/db/migration</location>
+                                <location>filesystem:src/main/resources/db/migration-local</location>
+                            </locations>
+                        </configuration>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.flywaydb</groupId>
+                                <artifactId>flyway-database-postgresql</artifactId>
+                                <version>13.12.1</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.postgresql</groupId>
+                                <artifactId>postgresql</artifactId>
+                                <version>42.7.14</version>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.springframework.security</groupId>
+                                <artifactId>spring-boot-security-config</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.springframework.security</groupId>
+                                <artifactId>spring-security-test</artifactId>
+                            </dependency>
+                        </dependencies>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

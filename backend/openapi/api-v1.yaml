@@ -91,6 +91,115 @@ paths:
                 items:
                   $ref: '#/components/schemas/AccessUser'
 
+  /api/v1/users/authorization:
+    get:
+      summary: List authorization users
+      description: Available only when the backend runs with the local Spring profile. Returns permissions combined from direct user assignments and role mappings.
+      responses:
+        '200':
+          description: Authorization user profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorizationUser'
+
+  /api/v1/users/authorization/{userId}:
+    patch:
+      summary: Update a local authorization user profile
+      description: Available only with the local Spring profile. Omitted fields are left unchanged. If managed_customer_ids is supplied, customer view grants are replaced before profile fields are updated. The configured local actor must hold customers:manage for each affected customer.
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAuthorizationUserRequest'
+      responses:
+        '200':
+          description: Updated authorization user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationUser'
+        '400':
+          description: Invalid role, status, manager, or permission code
+        '403':
+          description: Configured local actor lacks customers:manage for an affected customer
+        '404':
+          description: User not found
+
+  /api/v1/users/authorization/customer-access:
+    get:
+      summary: List active customer view grants
+      description: Available only when the backend runs with the local Spring profile.
+      responses:
+        '200':
+          description: Active customer access grants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorizationCustomerGrant'
+    put:
+      summary: Replace a user's customer view grants
+      description: Available only with the local Spring profile. The configured local actor must hold customers:manage for every customer added or removed. Revocations are retained in the database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceAuthorizationCustomerAccessRequest'
+      responses:
+        '200':
+          description: Active customer grants for the specified user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorizationCustomerGrant'
+        '400':
+          description: Invalid request
+        '403':
+          description: Configured local actor lacks customers:manage for an affected customer
+        '404':
+          description: User not found
+
+  /api/v1/users/{userId}:
+    patch:
+      summary: Update a user's role, permissions, status, or manager
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfileRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessUser'
+        '400':
+          description: Invalid profile values
+        '404':
+          description: User not found
+
   /api/v1/users/{userId}/customers:
     get:
       summary: Get customer access for a user
@@ -282,6 +391,114 @@ components:
         status:
           type: string
       required: [userId, name, email, role, permissions, status]
+
+    AuthorizationUser:
+      type: object
+      description: User representation returned by the local PostgreSQL authorization API.
+      properties:
+        user_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        manager_user_id:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, admin, sysadmin]
+        permissions:
+          type: array
+          description: Effective permissions from direct user assignments and role mappings.
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, pending, inactive]
+      required: [user_id, name, email, manager_user_id, role, permissions, status]
+
+    UpdateAuthorizationUserRequest:
+      type: object
+      description: All fields are optional; omitted values remain unchanged. A null manager_user_id is treated as unchanged.
+      properties:
+        role:
+          type: string
+          enum: [user, admin, sysadmin]
+        permissions:
+          type: array
+          description: Replaces direct user permission assignments. Unknown permission codes are rejected.
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, pending, inactive]
+        manager_user_id:
+          type: string
+          nullable: true
+        managed_customer_ids:
+          type: array
+          description: Replaces the user's customer:view grants. Each changed customer must be within the configured local actor's customers:manage scope.
+          items:
+            type: string
+            minLength: 1
+
+    ReplaceAuthorizationCustomerAccessRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          minLength: 1
+        customer_ids:
+          type: array
+          items:
+            type: string
+        granted_by:
+          type: string
+          description: Accepted for compatibility but ignored; the configured local actor is recorded as grantor.
+      required: [user_id, customer_ids]
+
+    AuthorizationCustomerGrant:
+      type: object
+      properties:
+        grant_id:
+          type: integer
+          format: int64
+        user_id:
+          type: string
+        customer_id:
+          type: string
+        granted_by:
+          type: string
+        source_grant_id:
+          type: integer
+          format: int64
+          nullable: true
+        granted_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+      required: [grant_id, user_id, customer_id, granted_by, source_grant_id, granted_at, revoked_at]
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [admin, sysadmin, user]
+        permissions:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, pending, inactive]
+        managerUserId:
+          type: string
 
     SessionMeResponse:
       type: object
