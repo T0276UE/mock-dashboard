@@ -41,6 +41,11 @@ public class IdentityRepository {
         return results.stream().findFirst();
     }
 
+    public List<DbUserProfile> findActiveUserProfiles() {
+        String sql = buildUserProfileSql() + " where au.status = 'ACTIVE' order by au.display_name asc";
+        return jdbcTemplate.query(sql, this::mapUserProfile);
+    }
+
     public Optional<ManagementTreeHead> findTreeHeadByOrganizationId(UUID organizationId) {
         String sql = """
             select tree_id, organization_id, current_version
@@ -55,6 +60,71 @@ public class IdentityRepository {
         ), organizationId);
 
         return results.stream().findFirst();
+    }
+
+    private String buildUserProfileSql() {
+        if (!usersTableExists()) {
+            return """
+                select
+                    au.id,
+                    au.organization_id,
+                    au.display_name,
+                    au.email,
+                    au.status as app_status,
+                    'user' as role,
+                    '[]' as permissions_json,
+                    null::text as manager_user_id,
+                    lower(au.status) as profile_status
+                from app_user au
+                """;
+        }
+
+        String joinPredicate = usersTableHasAppUserIdColumn()
+            ? "(u.app_user_id = au.id OR (u.app_user_id IS NULL AND lower(u.email) = lower(au.email)))"
+            : "lower(u.email) = lower(au.email)";
+
+        return """
+            select
+                au.id,
+                au.organization_id,
+                au.display_name,
+                au.email,
+                au.status as app_status,
+                coalesce(lower(u.role), 'user') as role,
+                coalesce(u.permissions, '[]') as permissions_json,
+                u.manager_user_id,
+                coalesce(lower(u.status), lower(au.status)) as profile_status
+            from app_user au
+            left join users u on
+            """ + joinPredicate;
+    }
+
+    private boolean usersTableExists() {
+        Boolean exists = jdbcTemplate.queryForObject(
+            "select to_regclass('public.users') is not null",
+            Boolean.class
+        );
+
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private boolean usersTableHasAppUserIdColumn() {
+        if (!usersTableExists()) {
+            return false;
+        }
+
+        Integer count = jdbcTemplate.queryForObject(
+            """
+            select count(*)
+            from information_schema.columns
+            where table_schema = 'public'
+              and table_name = 'users'
+              and column_name = 'app_user_id'
+            """,
+            Integer.class
+        );
+
+        return count != null && count > 0;
     }
 
     public Optional<ManagementTreeSnapshot> findTreeSnapshot(UUID treeId, long version) {
@@ -79,6 +149,20 @@ public class IdentityRepository {
             resultSet.getString("display_name"),
             resultSet.getString("email"),
             resultSet.getString("status")
+        );
+    }
+
+    private DbUserProfile mapUserProfile(ResultSet resultSet, int rowNum) throws SQLException {
+        return new DbUserProfile(
+            resultSet.getObject("id", UUID.class),
+            resultSet.getObject("organization_id", UUID.class),
+            resultSet.getString("display_name"),
+            resultSet.getString("email"),
+            resultSet.getString("app_status"),
+            resultSet.getString("role"),
+            resultSet.getString("permissions_json"),
+            resultSet.getString("manager_user_id"),
+            resultSet.getString("profile_status")
         );
     }
 }

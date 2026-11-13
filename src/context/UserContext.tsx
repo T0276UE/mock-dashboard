@@ -97,6 +97,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return toSessionUser(user);
   };
 
+  const normalizeSessionStatus = (status: string | null | undefined): SessionUser['status'] => {
+    const normalized = String(status ?? '').toLowerCase();
+    if (normalized === 'pending') return 'pending';
+    if (normalized === 'inactive' || normalized === 'suspended') return 'inactive';
+    return 'active';
+  };
+
+  const normalizeSessionRole = (role: string | null | undefined): Role => {
+    if (role === 'admin') return 'admin';
+    if (role === 'sysadmin') return 'sysadmin';
+    return 'user';
+  };
+
   const refreshAccessData = async () => {
     setIsSyncingAccess(true);
     setSyncError(null);
@@ -136,10 +149,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
             user_id: user.userId,
             name: user.displayName,
             email: user.email ?? `${user.userId}@example.com`,
-            manager_user_id: null,
-            role: 'user',
-            permissions: [],
-            status: user.status.toLowerCase() as SessionUser['status'],
+            manager_user_id: user.managerUserId,
+            role: normalizeSessionRole(user.role),
+            permissions: Array.isArray(user.permissions) ? user.permissions : [],
+            status: normalizeSessionStatus(user.status),
             managed_customer_ids: [],
           }));
 

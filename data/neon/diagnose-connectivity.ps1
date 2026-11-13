@@ -48,7 +48,8 @@ function Parse-JdbcHost {
     return $null
   }
 
-  $port = 443
+  # PostgreSQL default port when not explicitly provided in JDBC URL.
+  $port = 5432
   if ($m.Groups[2].Value) {
     $port = [int]$m.Groups[2].Value
   }
@@ -117,19 +118,6 @@ try {
   }
 } catch {
   $results += Add-Check -Name 'TCP Reachability' -Status 'FAIL' -Detail $_.Exception.Message
-}
-
-try {
-  $tcp = New-Object System.Net.Sockets.TcpClient
-  $tcp.Connect($jdbcParts.Host, $jdbcParts.Port)
-  $ssl = New-Object System.Net.Security.SslStream($tcp.GetStream(), $false, ({ $true }))
-  $ssl.AuthenticateAsClient($jdbcParts.Host)
-  $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 $ssl.RemoteCertificate
-  $results += Add-Check -Name 'TLS Handshake' -Status 'PASS' -Detail ("Protocol={0}; Issuer={1}" -f $ssl.SslProtocol, $cert.Issuer)
-  $ssl.Close()
-  $tcp.Close()
-} catch {
-  $results += Add-Check -Name 'TLS Handshake' -Status 'FAIL' -Detail $_.Exception.Message
 }
 
 try {

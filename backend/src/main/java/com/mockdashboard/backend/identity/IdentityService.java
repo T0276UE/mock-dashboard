@@ -30,14 +30,17 @@ public class IdentityService {
     }
 
     public List<DevUserSummaryResponse> listSelectableUsers() {
-        return identityRepository.findActiveUsers()
+        return identityRepository.findActiveUserProfiles()
             .stream()
             .map(user -> new DevUserSummaryResponse(
                 user.id(),
                 user.organizationId(),
                 user.displayName(),
                 user.email(),
-                user.status()
+                normalizeStatus(user.profileStatus(), user.appStatus()),
+                normalizeRole(user.role()),
+                parsePermissions(user.permissionsJson()),
+                user.managerUserId()
             ))
             .toList();
     }
@@ -100,6 +103,59 @@ public class IdentityService {
             return UUID.fromString(userId);
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId must be a UUID.");
+        }
+    }
+
+    private String normalizeStatus(String profileStatus, String fallbackStatus) {
+        String raw = profileStatus;
+        if (raw == null || raw.isBlank()) {
+            raw = fallbackStatus;
+        }
+
+        if (raw == null) {
+            return "active";
+        }
+
+        String normalized = raw.trim().toLowerCase();
+        return switch (normalized) {
+            case "active", "pending", "inactive" -> normalized;
+            case "suspended" -> "inactive";
+            default -> "active";
+        };
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null) {
+            return "user";
+        }
+
+        String normalized = role.trim().toLowerCase();
+        return switch (normalized) {
+            case "admin", "sysadmin", "user" -> normalized;
+            default -> "user";
+        };
+    }
+
+    private List<String> parsePermissions(String permissionsJson) {
+        if (permissionsJson == null || permissionsJson.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            JsonNode parsed = objectMapper.readTree(permissionsJson);
+            if (!parsed.isArray()) {
+                return List.of();
+            }
+
+            List<String> permissions = new ArrayList<>();
+            parsed.forEach(node -> {
+                if (node.isTextual()) {
+                    permissions.add(node.asText());
+                }
+            });
+            return permissions;
+        } catch (IOException ignored) {
+            return List.of();
         }
     }
 

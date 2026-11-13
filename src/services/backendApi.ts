@@ -30,6 +30,9 @@ export interface DevUserSummaryResponse {
   displayName: string;
   email: string | null;
   status: string;
+  role: SessionUser['role'];
+  permissions: string[];
+  managerUserId: string | null;
 }
 
 export interface DevSessionRequest {

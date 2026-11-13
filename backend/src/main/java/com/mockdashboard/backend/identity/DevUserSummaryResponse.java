@@ -1,5 +1,6 @@
 package com.mockdashboard.backend.identity;
 
+import java.util.List;
 import java.util.UUID;
 
 public record DevUserSummaryResponse(
@@ -7,6 +8,9 @@ public record DevUserSummaryResponse(
     UUID organizationId,
     String displayName,
     String email,
-    String status
+    String status,
+    String role,
+    List<String> permissions,
+    String managerUserId
 ) {
 }
