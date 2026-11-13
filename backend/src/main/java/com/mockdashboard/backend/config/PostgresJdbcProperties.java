@@ -1,15 +1,12 @@
-package com.mockdashboard.backend.databricks;
+package com.mockdashboard.backend.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "databricks.jdbc")
-public class DatabricksJdbcProperties {
+@ConfigurationProperties(prefix = "database.jdbc")
+public class PostgresJdbcProperties {
 
     private String url;
-    private String token;
-    private String username = "token";
-    private String catalog;
-    private String schema = "default";
+    private String schema = "public";
     private String customerAccessTable = "customer_access";
     private String localVinAccessTable = "local_vin_access";
 
@@ -19,30 +16,6 @@ public class DatabricksJdbcProperties {
 
     public void setUrl(String url) {
         this.url = url;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(String token) {
-        this.token = token;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getCatalog() {
-        return catalog;
-    }
-
-    public void setCatalog(String catalog) {
-        this.catalog = catalog;
     }
 
     public String getSchema() {

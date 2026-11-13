@@ -15,6 +15,10 @@ This module is the Spring backend bridge for the existing React frontend.
 
 ## Run locally
 
+Set `DATABASE_URL_POOLED` (recommended) or `DATABASE_URL` to a PostgreSQL connection URI in `backend/.env`.
+The backend prefers the pooled URL and accepts Neon URI parameters such as `sslmode=require`.
+`DATABASE_SCHEMA` defaults to `public`; the access tables default to `customer_access` and `local_vin_access`.
+
 From the repo root:
 
 ```bash
@@ -39,6 +43,5 @@ curl -X PUT http://localhost:8080/api/v1/users/USR-002/customers -H "Content-Typ
 
 ## Notes
 
-- Data is currently in-memory and resets on restart.
-- This is the transition layer before JDBC + Flyway persistence.
+- JDBC persistence uses PostgreSQL; the frontend's local SQLite database remains separate.
 - Authorization is intentionally permissive in this first cut and will be hardened in the next step.

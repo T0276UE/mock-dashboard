@@ -1,14 +1,15 @@
 package com.mockdashboard.backend.databricks;
 
+import com.mockdashboard.backend.config.PostgresJdbcProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
 public class DatabricksTableNameResolver {
 
-    private final DatabricksJdbcProperties properties;
+    private final PostgresJdbcProperties properties;
 
-    public DatabricksTableNameResolver(DatabricksJdbcProperties properties) {
+    public DatabricksTableNameResolver(PostgresJdbcProperties properties) {
         this.properties = properties;
     }
 
@@ -21,21 +22,11 @@ public class DatabricksTableNameResolver {
     }
 
     private String fullyQualified(String table) {
-        StringBuilder builder = new StringBuilder();
-
-        if (StringUtils.hasText(properties.getCatalog())) {
-            builder.append(quoteIdentifier(properties.getCatalog())).append('.');
-        }
-
-        builder.append(quoteIdentifier(properties.getSchema()))
-            .append('.')
-            .append(quoteIdentifier(table));
-
-        return builder.toString();
+        return quoteIdentifier(properties.getSchema()) + "." + quoteIdentifier(table);
     }
 
     private String quoteIdentifier(String value) {
         String normalized = value == null ? "" : value.trim();
-        return "`" + normalized.replace("`", "``") + "`";
+        return "\"" + normalized.replace("\"", "\"\"") + "\"";
     }
 }
