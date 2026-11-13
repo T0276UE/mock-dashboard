@@ -13,6 +13,7 @@
     "backend:test": "mvn -f backend/pom.xml test",
     "neon:smoke": "node --env-file=.env data/neon/smoke-services.mjs",
     "neon:smoke:assets": "set NEON_STORAGE_BUCKET=assets&& node --env-file=.env data/neon/smoke-services.mjs",
+    "neon:diagnose": "powershell -ExecutionPolicy Bypass -File ./data/neon/diagnose-connectivity.ps1",
     "db:seed": "npx tsx data/seed-users.js",
     "databricks:sync-access": "node --env-file=.env data/sync-databricks-access.mjs",
     "databricks:discover": "node --env-file=.env data/sync-databricks-access.mjs --discover",
