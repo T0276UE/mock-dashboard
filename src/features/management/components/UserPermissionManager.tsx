@@ -4,6 +4,7 @@ import type { Role } from '../../../navigation/types';
 import { RoleSelector } from './RoleSelector';
 import { DEFAULT_ROLE_PERMISSIONS, ROLE_PERMISSIONS, canAssignRole, canEditUserAccess, getAccessNotice } from './rolePermissions';
 import { customers } from '../../../data/customers';
+import { fetchMeContext, isBackendSessionEnabled, type MeContextResponse } from '../../../services/backendApi';
 
 export function UserPermissionManager() {
   const {
@@ -19,6 +20,11 @@ export function UserPermissionManager() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
+  const [backendContext, setBackendContext] = useState<MeContextResponse | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+
+  const canShowBackendContextPanel = import.meta.env.DEV && isBackendSessionEnabled();
 
   useEffect(() => {
     if (!users.length) return;
@@ -81,6 +87,28 @@ export function UserPermissionManager() {
       setUpdatingKey(null);
     }
   };
+
+  const refreshBackendContext = async () => {
+    if (!canShowBackendContextPanel) return;
+
+    setContextLoading(true);
+    setContextError(null);
+
+    try {
+      const context = await fetchMeContext();
+      setBackendContext(context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load backend context.';
+      setContextError(message);
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canShowBackendContextPanel) return;
+    void refreshBackendContext();
+  }, [canShowBackendContextPanel, currentUser?.user_id, session?.issuedAt]);
 
   return (
     <div
@@ -231,6 +259,69 @@ export function UserPermissionManager() {
           </table>
         </div>
       </div>
+
+      {canShowBackendContextPanel && (
+        <div
+          style={{
+            marginTop: 28,
+            border: '1px solid #d1fae5',
+            background: '#f0fdf4',
+            borderRadius: 12,
+            padding: 16,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Backend Context (Dev)</h3>
+            <button
+              type="button"
+              onClick={() => void refreshBackendContext()}
+              disabled={contextLoading}
+              style={{
+                border: '1px solid #10b981',
+                background: '#ecfdf5',
+                color: '#065f46',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: contextLoading ? 'not-allowed' : 'pointer',
+                opacity: contextLoading ? 0.7 : 1,
+              }}
+            >
+              {contextLoading ? 'Refreshing...' : 'Refresh context'}
+            </button>
+          </div>
+
+          {contextError && (
+            <div
+              style={{
+                marginBottom: 10,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid #fecaca',
+                background: '#fef2f2',
+                color: '#991b1b',
+                fontSize: 12,
+              }}
+            >
+              {contextError}
+            </div>
+          )}
+
+          {backendContext && (
+            <div style={{ fontSize: 13, color: '#065f46', display: 'grid', gap: 6 }}>
+              <div><strong>userId:</strong> {backendContext.userId}</div>
+              <div><strong>organizationId:</strong> {backendContext.organizationId}</div>
+              <div><strong>treeId:</strong> {backendContext.treeId}</div>
+              <div><strong>treeVersion:</strong> {backendContext.treeVersion}</div>
+              <div><strong>managerUserId:</strong> {backendContext.managerUserId ?? 'null'}</div>
+              <div><strong>directReportUserIds:</strong> {backendContext.directReportUserIds.join(', ') || '[]'}</div>
+              <div><strong>peerUserIds:</strong> {backendContext.peerUserIds.join(', ') || '[]'}</div>
+              <div><strong>pathToRootUserIds:</strong> {backendContext.pathToRootUserIds.join(' -> ') || '[]'}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

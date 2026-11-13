@@ -223,6 +223,59 @@ paths:
         '404':
           description: User not found
 
+  /api/v1/dev/users:
+    get:
+      summary: List selectable active users for dev session bootstrap
+      responses:
+        '200':
+          description: Active users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DevUserSummaryResponse'
+
+  /api/v1/dev/session:
+    post:
+      summary: Create or switch authenticated dev session from an active user ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DevSessionRequest'
+      responses:
+        '200':
+          description: Dev session payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevSessionResponse'
+        '400':
+          description: Invalid userId format
+        '401':
+          description: Unknown user profile
+        '403':
+          description: User profile is inactive
+
+  /api/v1/me/context:
+    get:
+      summary: Build context bundle from app_user and current management tree snapshot
+      responses:
+        '200':
+          description: Authenticated user context bundle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeContextResponse'
+        '401':
+          description: No authenticated session
+        '404':
+          description: User or tree not found
+        '422':
+          description: Invalid management tree snapshot payload
+
 components:
   schemas:
     AuthLoginRequest:
@@ -389,3 +442,93 @@ components:
         insertedCount:
           type: integer
       required: [insertedCount]
+
+    DevSessionRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+      required: [userId]
+
+    DevSessionResponse:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+        userId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        status:
+          type: string
+        issuedAt:
+          type: string
+      required: [authenticated, userId, organizationId, displayName, status, issuedAt]
+
+    DevUserSummaryResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        email:
+          type: string
+          nullable: true
+        status:
+          type: string
+      required: [userId, organizationId, displayName, status]
+
+    MeContextResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        treeId:
+          type: string
+          format: uuid
+        treeVersion:
+          type: integer
+          format: int64
+        managerUserId:
+          type: string
+          format: uuid
+          nullable: true
+        directReportUserIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        peerUserIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        pathToRootUserIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        [
+          userId,
+          organizationId,
+          treeId,
+          treeVersion,
+          directReportUserIds,
+          peerUserIds,
+          pathToRootUserIds
+        ]

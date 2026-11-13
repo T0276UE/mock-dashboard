@@ -13,6 +13,9 @@ import {
   type UserAccessProfileUpdate,
 } from '../services/databricksAccessService';
 import {
+  createDevSession,
+  fetchDevUsers,
+  fetchMeContext,
   fetchSessionMe,
   fetchUsers,
   isBackendSessionEnabled,
@@ -124,6 +127,52 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const bootstrap = async () => {
       const tryBootstrapFromBackend = async () => {
         if (!isBackendSessionEnabled()) return false;
+
+        try {
+          const devUsers = await fetchDevUsers();
+          if (!devUsers.length) return false;
+
+          const mappedUsers: SessionUser[] = devUsers.map((user) => ({
+            user_id: user.userId,
+            name: user.displayName,
+            email: user.email ?? `${user.userId}@example.com`,
+            manager_user_id: null,
+            role: 'user',
+            permissions: [],
+            status: user.status.toLowerCase() as SessionUser['status'],
+            managed_customer_ids: [],
+          }));
+
+          setUsers(mappedUsers);
+
+          let meContextUserId: string | null = null;
+          try {
+            const meContext = await fetchMeContext();
+            meContextUserId = meContext.userId;
+          } catch {
+            const seededUserId = mappedUsers[0]?.user_id;
+            if (!seededUserId) return false;
+
+            await createDevSession({ userId: seededUserId });
+            const meContext = await fetchMeContext();
+            meContextUserId = meContext.userId;
+          }
+
+          if (!meContextUserId) return false;
+
+          const current = mappedUsers.find((candidate) => candidate.user_id === meContextUserId) ?? mappedUsers[0];
+
+          setCurrentUserState(current);
+          setSession({
+            provider: 'external',
+            isAuthenticated: true,
+            issuedAt: new Date().toISOString(),
+          });
+
+          return true;
+        } catch (error) {
+          console.error('Failed to bootstrap backend dev session flow:', error);
+        }
 
         try {
           const [sessionMe, backendUsers] = await Promise.all([fetchSessionMe(), fetchUsers()]);
@@ -240,6 +289,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCurrentUserState(next);
 
     if (next) {
+      if (isBackendSessionEnabled()) {
+        void (async () => {
+          try {
+            await createDevSession({ userId: next.user_id });
+            const meContext = await fetchMeContext();
+            setCurrentUserState((previous) => {
+              const source = previous ?? next;
+              return {
+                ...source,
+                user_id: meContext.userId,
+              };
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Failed to switch backend session user.';
+            setSyncError(message);
+            console.error('Failed to switch backend session user:', error);
+          }
+        })();
+      }
+
       setSession((prev) => ({
         provider: prev?.provider ?? 'demo',
         isAuthenticated: true,
