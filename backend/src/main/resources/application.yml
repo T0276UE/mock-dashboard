@@ -3,19 +3,16 @@ server:
 
 spring:
   config:
-    import: optional:file:.env[.properties]
+    import: optional:file:./.env[.properties],optional:file:./backend/.env[.properties]
   application:
     name: mock-dashboard-backend
 
-databricks:
+database:
   jdbc:
-    url: ${DATABRICKS_JDBC_URL:${VITE_DATABRICKS_JDBC_URL:}}
-    token: ${DATABRICKS_PERSONAL_ACCESS_TOKEN:}
-    username: ${DATABRICKS_USERNAME:token}
-    catalog: ${DATABRICKS_CATALOG:}
-    schema: ${DATABRICKS_SCHEMA:default}
-    customer-access-table: ${DATABRICKS_CUSTOMER_ACCESS_TABLE:customer_access}
-    local-vin-access-table: ${DATABRICKS_LOCAL_VIN_ACCESS_TABLE:local_vin_access}
+    url: ${DATABASE_URL_POOLED:${DATABASE_URL:}}
+    schema: ${DATABASE_SCHEMA:public}
+    customer-access-table: ${DATABASE_CUSTOMER_ACCESS_TABLE:customer_access}
+    local-vin-access-table: ${DATABASE_LOCAL_VIN_ACCESS_TABLE:local_vin_access}
 
 springdoc:
   api-docs:
