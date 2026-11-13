@@ -1,5 +1,6 @@
 package com.mockdashboard.backend.databricks;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 @Service
+@Profile("!postgres")
 public class DatabricksAccessService {
 
     private final DatabricksAccessRepository repository;

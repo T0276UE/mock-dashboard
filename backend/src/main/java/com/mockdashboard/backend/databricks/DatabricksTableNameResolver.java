@@ -1,9 +1,11 @@
 package com.mockdashboard.backend.databricks;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 @Component
+@Profile("!postgres")
 public class DatabricksTableNameResolver {
 
     private final DatabricksJdbcProperties properties;

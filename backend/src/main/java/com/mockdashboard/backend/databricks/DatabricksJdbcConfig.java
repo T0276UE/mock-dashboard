@@ -3,6 +3,7 @@ package com.mockdashboard.backend.databricks;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.util.StringUtils;
@@ -10,6 +11,7 @@ import org.springframework.util.StringUtils;
 import javax.sql.DataSource;
 
 @Configuration
+@Profile("!postgres")
 @EnableConfigurationProperties(DatabricksJdbcProperties.class)
 public class DatabricksJdbcConfig {
 
