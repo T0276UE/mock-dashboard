@@ -3,7 +3,9 @@ package com.mockdashboard.backend.identity;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -42,8 +44,13 @@ public class IdentityRepository {
     }
 
     public List<DbUserProfile> findActiveUserProfiles() {
-        String sql = buildUserProfileSql() + " where au.status = 'ACTIVE' order by au.display_name asc";
+        String sql = buildUserProfileSql() + " where au.status = 'ACTIVE' order by au.display_name asc, au.id asc";
         return jdbcTemplate.query(sql, this::mapUserProfile);
+    }
+
+    public Optional<DbUserProfile> findUserProfileById(UUID userId) {
+        String sql = buildUserProfileSql() + " where au.id = ?";
+        return jdbcTemplate.query(sql, this::mapUserProfile, userId).stream().findFirst();
     }
 
     public Optional<ManagementTreeHead> findTreeHeadByOrganizationId(UUID organizationId) {
@@ -63,26 +70,6 @@ public class IdentityRepository {
     }
 
     private String buildUserProfileSql() {
-        if (!usersTableExists()) {
-            return """
-                select
-                    au.id,
-                    au.organization_id,
-                    au.display_name,
-                    au.email,
-                    au.status as app_status,
-                    'user' as role,
-                    '[]' as permissions_json,
-                    null::text as manager_user_id,
-                    lower(au.status) as profile_status
-                from app_user au
-                """;
-        }
-
-        String joinPredicate = usersTableHasAppUserIdColumn()
-            ? "(u.app_user_id = au.id OR (u.app_user_id IS NULL AND lower(u.email) = lower(au.email)))"
-            : "lower(u.email) = lower(au.email)";
-
         return """
             select
                 au.id,
@@ -90,41 +77,57 @@ public class IdentityRepository {
                 au.display_name,
                 au.email,
                 au.status as app_status,
-                coalesce(lower(u.role), 'user') as role,
-                coalesce(u.permissions, '[]') as permissions_json,
-                u.manager_user_id,
-                coalesce(lower(u.status), lower(au.status)) as profile_status
+                coalesce(lower(ur.role), 'user') as role,
+                case
+                    when lower(ur.role) = 'admin'
+                        then '["dashboard:view","customers:manage","vehicles:manage","products:view","users:manage"]'
+                    else '["dashboard:view","customers:view","vehicles:view","products:view"]'
+                end as permissions_json,
+                null::text as manager_user_id,
+                lower(au.status) as profile_status
             from app_user au
-            left join users u on
-            """ + joinPredicate;
+            left join user_roles ur on ur.userid = au.id
+            """;
     }
 
-    private boolean usersTableExists() {
-        Boolean exists = jdbcTemplate.queryForObject(
-            "select to_regclass('public.users') is not null",
-            Boolean.class
+    public List<String> findCustomerIdsForUser(UUID userId) {
+        return jdbcTemplate.queryForList(
+            "select customer_id from customer_access where user_id = ? order by customer_id",
+            String.class,
+            userId
         );
-
-        return Boolean.TRUE.equals(exists);
     }
 
-    private boolean usersTableHasAppUserIdColumn() {
-        if (!usersTableExists()) {
-            return false;
+    @Transactional
+    public List<String> replaceCustomerAccessForUser(UUID userId, List<String> customerIds, UUID grantedBy) {
+        jdbcTemplate.update("delete from customer_access where user_id = ?", userId);
+
+        List<Object[]> rows = new ArrayList<>();
+        for (String customerId : customerIds) {
+            if (customerId != null && !customerId.isBlank()) {
+                rows.add(new Object[] { userId, customerId.trim(), grantedBy });
+            }
         }
 
-        Integer count = jdbcTemplate.queryForObject(
-            """
-            select count(*)
-            from information_schema.columns
-            where table_schema = 'public'
-              and table_name = 'users'
-              and column_name = 'app_user_id'
-            """,
-            Integer.class
-        );
+        if (!rows.isEmpty()) {
+            jdbcTemplate.batchUpdate(
+                "insert into customer_access (user_id, customer_id, granted_by) values (?, ?, ?)",
+                rows
+            );
+        }
 
-        return count != null && count > 0;
+        return findCustomerIdsForUser(userId);
+    }
+
+    public void updateUserRole(UUID userId, String role) {
+        jdbcTemplate.update(
+            """
+            insert into user_roles (userid, role) values (?, ?)
+            on conflict (userid) do update set role = excluded.role
+            """,
+            userId,
+            role
+        );
     }
 
     public Optional<ManagementTreeSnapshot> findTreeSnapshot(UUID treeId, long version) {
@@ -140,6 +143,34 @@ public class IdentityRepository {
         ), treeId, version);
 
         return results.stream().findFirst();
+    }
+
+    public long publishManagementTreeSnapshot(
+        UUID treeId,
+        long expectedVersion,
+        String structureJson,
+        int schemaVersion,
+        UUID actorUserId,
+        String reason
+    ) {
+        Long version = jdbcTemplate.queryForObject(
+            """
+            select version
+            from publish_management_tree_snapshot(?, ?, cast(? as jsonb), ?, ?, ?, null)
+            """,
+            Long.class,
+            treeId,
+            expectedVersion,
+            structureJson,
+            schemaVersion,
+            actorUserId,
+            reason
+        );
+
+        if (version == null) {
+            throw new IllegalStateException("Management tree snapshot publication returned no version.");
+        }
+        return version;
     }
 
     private DbAppUser mapAppUser(ResultSet resultSet, int rowNum) throws SQLException {

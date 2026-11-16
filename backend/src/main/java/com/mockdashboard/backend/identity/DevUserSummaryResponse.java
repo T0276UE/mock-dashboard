@@ -11,6 +11,7 @@ public record DevUserSummaryResponse(
     String status,
     String role,
     List<String> permissions,
-    String managerUserId
+    String managerUserId,
+    List<String> managedCustomerIds
 ) {
 }

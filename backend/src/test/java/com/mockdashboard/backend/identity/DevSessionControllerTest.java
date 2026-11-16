@@ -1,5 +1,6 @@
 package com.mockdashboard.backend.identity;
 
+import com.mockdashboard.backend.access.SessionMeResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,7 +49,11 @@ class DevSessionControllerTest {
                 UUID.fromString("11111111-1111-1111-1111-111111111111"),
                 "Alice Patel",
                 "alice@example.com",
-                "ACTIVE"
+                "ACTIVE",
+                "USER",
+                List.of(),
+                null,
+                List.of("CUST-000124")
             )
         ));
 
@@ -68,6 +73,15 @@ class DevSessionControllerTest {
             "Alice Patel",
             "alice@example.com",
             "ACTIVE"
+        ));
+        when(identityService.buildSession(eq(userId))).thenReturn(new SessionMeResponse(
+            userId.toString(),
+            "Alice Patel",
+            "admin",
+            "active",
+            List.of("user", "admin"),
+            List.of("users:manage"),
+            List.of("CUST-000124")
         ));
 
         String body = """
@@ -115,6 +129,10 @@ class DevSessionControllerTest {
         when(identityService.buildUserContext(eq(userId))).thenReturn(new MeContextResponse(
             userId,
             UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            "user",
+            List.of("user"),
+            List.of("dashboard:view"),
+            List.of("CUST-000124"),
             UUID.fromString("22222222-2222-2222-2222-222222222222"),
             1L,
             UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),

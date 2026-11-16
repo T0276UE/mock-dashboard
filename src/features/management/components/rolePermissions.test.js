@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ROLE_OPTIONS, normalizeRole, getRoleLabel, canEditUserAccess } from './rolePermissions.js';
 
 test('role options are exposed as valid admin roles', () => {
-  assert.deepEqual(ROLE_OPTIONS, ['user', 'sysadmin', 'admin']);
+  assert.deepEqual(ROLE_OPTIONS, ['user', 'admin']);
 });
 
 test('role labels and normalization are stable', () => {

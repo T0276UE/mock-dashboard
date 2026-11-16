@@ -1,22 +1,26 @@
 -- Phase 3: deterministic development seed for one organization and one hierarchy snapshot.
 
 INSERT INTO organization (id, name)
-VALUES ('11111111-1111-1111-1111-111111111111', 'Demo Organization');
+VALUES ('11111111-1111-1111-1111-111111111111', 'Demo Organization')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO app_user (id, organization_id, display_name, email, status)
 VALUES
     ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '11111111-1111-1111-1111-111111111111', 'Alice Patel', 'alice.patel@example.com', 'ACTIVE'),
     ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2', '11111111-1111-1111-1111-111111111111', 'Morgan Lee', 'morgan.lee@example.com', 'ACTIVE'),
-    ('cccccccc-cccc-cccc-cccc-ccccccccccc3', '11111111-1111-1111-1111-111111111111', 'Taylor Chen', 'taylor.chen@example.com', 'ACTIVE');
+    ('cccccccc-cccc-cccc-cccc-ccccccccccc3', '11111111-1111-1111-1111-111111111111', 'Taylor Chen', 'taylor.chen@example.com', 'ACTIVE')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO external_identity (issuer, subject, user_id)
 VALUES
     ('demo-local', 'alice.patel', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'),
     ('demo-local', 'morgan.lee', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb2'),
-    ('demo-local', 'taylor.chen', 'cccccccc-cccc-cccc-cccc-ccccccccccc3');
+    ('demo-local', 'taylor.chen', 'cccccccc-cccc-cccc-cccc-ccccccccccc3')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO management_tree_head (tree_id, organization_id, current_version)
-VALUES ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 1);
+VALUES ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 1)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO management_tree_snapshot (
     tree_id,
@@ -35,4 +39,5 @@ VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
     'Initial seed hierarchy',
     NULL
-);
+)
+ON CONFLICT DO NOTHING;

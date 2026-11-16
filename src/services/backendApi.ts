@@ -24,6 +24,14 @@ export interface UpdateUserCustomersRequest {
   customerIds: string[];
 }
 
+export interface UpdateUserRoleRequest {
+  role: 'user' | 'admin';
+}
+
+export interface UpdateUserManagerRequest {
+  managerUserId: string | null;
+}
+
 export interface DevUserSummaryResponse {
   userId: string;
   organizationId: string;
@@ -33,6 +41,7 @@ export interface DevUserSummaryResponse {
   role: SessionUser['role'];
   permissions: string[];
   managerUserId: string | null;
+  managedCustomerIds: string[];
 }
 
 export interface DevSessionRequest {
@@ -45,12 +54,20 @@ export interface DevSessionResponse {
   organizationId: string;
   displayName: string;
   status: string;
+  role: SessionUser['role'];
+  effectiveRoles: string[];
+  effectivePermissions: string[];
+  managedCustomerIds: string[];
   issuedAt: string;
 }
 
 export interface MeContextResponse {
   userId: string;
   organizationId: string;
+  role: SessionUser['role'];
+  effectiveRoles: string[];
+  effectivePermissions: string[];
+  managedCustomerIds: string[];
   treeId: string;
   treeVersion: number;
   managerUserId: string | null;
@@ -105,6 +122,20 @@ export async function fetchUserCustomers(userId: string): Promise<string[]> {
 
 export async function replaceUserCustomers(userId: string, payload: UpdateUserCustomersRequest): Promise<string[]> {
   return request<string[]>(`/api/v1/users/${encodeURIComponent(userId)}/customers`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function replaceUserRole(userId: string, payload: UpdateUserRoleRequest): Promise<DevUserSummaryResponse> {
+  return request<DevUserSummaryResponse>(`/api/v1/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function replaceUserManager(userId: string, payload: UpdateUserManagerRequest): Promise<DevUserSummaryResponse> {
+  return request<DevUserSummaryResponse>(`/api/v1/users/${encodeURIComponent(userId)}/manager`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });

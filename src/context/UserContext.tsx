@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Role } from '../navigation/types';
 import { DEFAULT_ROLE_PERMISSIONS, ROLE_HIERARCHY } from '../features/management/components/rolePermissions';
 import { seedUsers, toSessionUser } from './utils/userSeed';
@@ -87,6 +87,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isSyncingAccess, setIsSyncingAccess] = useState(false);
   const [databricksSource, setDatabricksSource] = useState<AccessDataSource>('seed');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const sessionSwitchRequestId = useRef(0);
+  const sessionSwitchQueue = useRef<Promise<void>>(Promise.resolve());
 
   const resolveSessionUser = (user: User | SessionUser | null, sourceUsers: SessionUser[]): SessionUser | null => {
     if (!user) return null;
@@ -153,7 +155,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             role: normalizeSessionRole(user.role),
             permissions: Array.isArray(user.permissions) ? user.permissions : [],
             status: normalizeSessionStatus(user.status),
-            managed_customer_ids: [],
+            managed_customer_ids: Array.isArray(user.managedCustomerIds) ? user.managedCustomerIds : [],
           }));
 
           setUsers(mappedUsers);
@@ -299,27 +301,50 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const setCurrentUser = (user: User | null) => {
     const next = resolveSessionUser(user, users);
+    const previousUser = currentUser;
     setCurrentUserState(next);
 
     if (next) {
       if (isBackendSessionEnabled()) {
+        const requestId = ++sessionSwitchRequestId.current;
+        const switchRequest = sessionSwitchQueue.current.then(() =>
+          createDevSession({ userId: next.user_id }),
+        );
+        sessionSwitchQueue.current = switchRequest.then(
+          () => undefined,
+          () => undefined,
+        );
+
         void (async () => {
           try {
-            await createDevSession({ userId: next.user_id });
-            const meContext = await fetchMeContext();
-            setCurrentUserState((previous) => {
-              const source = previous ?? next;
-              return {
-                ...source,
-                user_id: meContext.userId,
-              };
+            const switchedSession = await switchRequest;
+            if (requestId !== sessionSwitchRequestId.current) return;
+
+            setCurrentUserState({
+              ...next,
+              user_id: switchedSession.userId,
+              name: switchedSession.displayName,
+              role: normalizeSessionRole(switchedSession.role),
+              permissions: switchedSession.effectivePermissions,
+              managed_customer_ids: switchedSession.managedCustomerIds,
+            });
+            setSession({
+              provider: 'external',
+              isAuthenticated: true,
+              issuedAt: switchedSession.issuedAt,
             });
           } catch (error) {
+            if (requestId !== sessionSwitchRequestId.current) return;
+
+            setCurrentUserState((activeUser) =>
+              activeUser?.user_id === next.user_id ? previousUser : activeUser,
+            );
             const message = error instanceof Error ? error.message : 'Failed to switch backend session user.';
             setSyncError(message);
             console.error('Failed to switch backend session user:', error);
           }
         })();
+        return;
       }
 
       setSession((prev) => ({
@@ -332,6 +357,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    sessionSwitchRequestId.current += 1;
     setSession(null);
   };
 

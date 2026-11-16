@@ -4,8 +4,10 @@ import { DEFAULT_ROLE_PERMISSIONS } from '../features/management/components/role
 import { seedCustomerAccessRecords, seedUsers } from '../context/utils/userSeed';
 import {
   fetchUserCustomers,
+  isBackendSessionEnabled,
   isBackendCustomerAccessFlowEnabled,
   replaceUserCustomers,
+  replaceUserRole,
 } from './backendApi';
 
 export type AccessDataSource = 'seed' | 'databricks-local-json' | 'databricks-http';
@@ -123,8 +125,10 @@ class SeedAccessClient implements DatabricksAccessClient {
     };
   }
 
-  async updateUserAccessProfile(): Promise<void> {
-    return;
+  async updateUserAccessProfile(userId: string, updates: UserAccessProfileUpdate): Promise<void> {
+    if (isBackendSessionEnabled() && updates.role) {
+      await replaceUserRole(userId, { role: updates.role === 'admin' ? 'admin' : 'user' });
+    }
   }
 }
 

@@ -2,6 +2,7 @@ package com.mockdashboard.backend.identity;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import com.mockdashboard.backend.access.SessionMeResponse;
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,11 +41,18 @@ public class DevSessionController {
     @PostMapping("/api/v1/dev/session")
     public DevSessionResponse createOrSwitchSession(@Valid @RequestBody DevSessionRequest request, HttpServletRequest httpServletRequest) {
         DbAppUser user = identityService.requireUserById(request.userId());
+        SessionMeResponse resolvedSession = identityService.buildSession(user.id());
+
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + resolvedSession.role().toUpperCase()));
+        resolvedSession.effectivePermissions().forEach(permission ->
+            authorities.add(new SimpleGrantedAuthority(permission))
+        );
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
             user.id().toString(),
             null,
-            List.of(new SimpleGrantedAuthority("ROLE_DEV"))
+            authorities
         );
 
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
@@ -59,6 +68,10 @@ public class DevSessionController {
             user.organizationId(),
             user.displayName(),
             user.status(),
+            resolvedSession.role(),
+            resolvedSession.effectiveRoles(),
+            resolvedSession.effectivePermissions(),
+            resolvedSession.managedCustomerIds(),
             Instant.ofEpochMilli(session.getCreationTime()).toString()
         );
     }

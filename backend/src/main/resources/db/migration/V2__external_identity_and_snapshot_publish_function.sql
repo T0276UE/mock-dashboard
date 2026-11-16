@@ -1,6 +1,8 @@
 -- Phase 2: add external identity mapping + controlled snapshot append function.
 
-CREATE TABLE external_identity (
+-- Some development databases predate Flyway ownership and already contain
+-- this table. Adopt the existing object while still letting Flyway record V2.
+CREATE TABLE IF NOT EXISTS external_identity (
     issuer TEXT NOT NULL,
     subject TEXT NOT NULL,
     user_id UUID NOT NULL REFERENCES app_user (id),
@@ -8,7 +10,7 @@ CREATE TABLE external_identity (
     PRIMARY KEY (issuer, subject)
 );
 
-CREATE INDEX idx_external_identity_user_id ON external_identity (user_id);
+CREATE INDEX IF NOT EXISTS idx_external_identity_user_id ON external_identity (user_id);
 
 CREATE OR REPLACE FUNCTION publish_management_tree_snapshot(
     p_tree_id UUID,
