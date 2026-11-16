@@ -28,3 +28,4 @@ backend/target/
 .env
 .env.*
 !.env.example
+.neon

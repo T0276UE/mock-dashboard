@@ -2,6 +2,7 @@ package com.mockdashboard.backend.databricks;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 
 @Repository
+@Profile("!postgres")
 public class DatabricksAccessRepository {
 
     private final JdbcTemplate jdbcTemplate;

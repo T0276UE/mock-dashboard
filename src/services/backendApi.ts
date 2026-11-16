@@ -24,6 +24,58 @@ export interface UpdateUserCustomersRequest {
   customerIds: string[];
 }
 
+export interface UpdateUserRoleRequest {
+  role: 'user' | 'admin';
+}
+
+export interface UpdateUserManagerRequest {
+  managerUserId: string | null;
+}
+
+export interface DevUserSummaryResponse {
+  userId: string;
+  organizationId: string;
+  displayName: string;
+  email: string | null;
+  status: string;
+  role: SessionUser['role'];
+  permissions: string[];
+  managerUserId: string | null;
+  managedCustomerIds: string[];
+}
+
+export interface DevSessionRequest {
+  userId: string;
+}
+
+export interface DevSessionResponse {
+  authenticated: boolean;
+  userId: string;
+  organizationId: string;
+  displayName: string;
+  status: string;
+  role: SessionUser['role'];
+  effectiveRoles: string[];
+  effectivePermissions: string[];
+  managedCustomerIds: string[];
+  issuedAt: string;
+}
+
+export interface MeContextResponse {
+  userId: string;
+  organizationId: string;
+  role: SessionUser['role'];
+  effectiveRoles: string[];
+  effectivePermissions: string[];
+  managedCustomerIds: string[];
+  treeId: string;
+  treeVersion: number;
+  managerUserId: string | null;
+  directReportUserIds: string[];
+  peerUserIds: string[];
+  pathToRootUserIds: string[];
+}
+
 export function isBackendSessionEnabled(): boolean {
   return String(import.meta.env.VITE_USE_BACKEND_SESSION ?? '').toLowerCase() === 'true';
 }
@@ -39,6 +91,7 @@ function getApiBaseUrl(): string {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    credentials: 'include',
     ...init,
     headers: {
       'Content-Type': 'application/json',
@@ -72,4 +125,33 @@ export async function replaceUserCustomers(userId: string, payload: UpdateUserCu
     method: 'PUT',
     body: JSON.stringify(payload),
   });
+}
+
+export async function replaceUserRole(userId: string, payload: UpdateUserRoleRequest): Promise<DevUserSummaryResponse> {
+  return request<DevUserSummaryResponse>(`/api/v1/users/${encodeURIComponent(userId)}/role`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function replaceUserManager(userId: string, payload: UpdateUserManagerRequest): Promise<DevUserSummaryResponse> {
+  return request<DevUserSummaryResponse>(`/api/v1/users/${encodeURIComponent(userId)}/manager`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchDevUsers(): Promise<DevUserSummaryResponse[]> {
+  return request<DevUserSummaryResponse[]>('/api/v1/dev/users', { method: 'GET' });
+}
+
+export async function createDevSession(payload: DevSessionRequest): Promise<DevSessionResponse> {
+  return request<DevSessionResponse>('/api/v1/dev/session', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchMeContext(): Promise<MeContextResponse> {
+  return request<MeContextResponse>('/api/v1/me/context', { method: 'GET' });
 }

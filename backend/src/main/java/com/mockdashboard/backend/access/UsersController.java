@@ -1,6 +1,7 @@
 package com.mockdashboard.backend.access;
 
 import jakarta.validation.Valid;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
+@Profile("!postgres")
 @RequestMapping("/api/v1/users")
 public class UsersController {
 

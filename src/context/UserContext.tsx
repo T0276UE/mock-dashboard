@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Role } from '../navigation/types';
 import { DEFAULT_ROLE_PERMISSIONS, ROLE_HIERARCHY } from '../features/management/components/rolePermissions';
 import { seedUsers, toSessionUser } from './utils/userSeed';
@@ -13,6 +13,9 @@ import {
   type UserAccessProfileUpdate,
 } from '../services/databricksAccessService';
 import {
+  createDevSession,
+  fetchDevUsers,
+  fetchMeContext,
   fetchSessionMe,
   fetchUsers,
   isBackendSessionEnabled,
@@ -84,6 +87,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isSyncingAccess, setIsSyncingAccess] = useState(false);
   const [databricksSource, setDatabricksSource] = useState<AccessDataSource>('seed');
   const [syncError, setSyncError] = useState<string | null>(null);
+  const sessionSwitchRequestId = useRef(0);
+  const sessionSwitchQueue = useRef<Promise<void>>(Promise.resolve());
 
   const resolveSessionUser = (user: User | SessionUser | null, sourceUsers: SessionUser[]): SessionUser | null => {
     if (!user) return null;
@@ -92,6 +97,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (matched) return matched;
 
     return toSessionUser(user);
+  };
+
+  const normalizeSessionStatus = (status: string | null | undefined): SessionUser['status'] => {
+    const normalized = String(status ?? '').toLowerCase();
+    if (normalized === 'pending') return 'pending';
+    if (normalized === 'inactive' || normalized === 'suspended') return 'inactive';
+    return 'active';
+  };
+
+  const normalizeSessionRole = (role: string | null | undefined): Role => {
+    if (role === 'admin') return 'admin';
+    if (role === 'sysadmin') return 'sysadmin';
+    return 'user';
   };
 
   const refreshAccessData = async () => {
@@ -124,6 +142,52 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const bootstrap = async () => {
       const tryBootstrapFromBackend = async () => {
         if (!isBackendSessionEnabled()) return false;
+
+        try {
+          const devUsers = await fetchDevUsers();
+          if (!devUsers.length) return false;
+
+          const mappedUsers: SessionUser[] = devUsers.map((user) => ({
+            user_id: user.userId,
+            name: user.displayName,
+            email: user.email ?? `${user.userId}@example.com`,
+            manager_user_id: user.managerUserId,
+            role: normalizeSessionRole(user.role),
+            permissions: Array.isArray(user.permissions) ? user.permissions : [],
+            status: normalizeSessionStatus(user.status),
+            managed_customer_ids: Array.isArray(user.managedCustomerIds) ? user.managedCustomerIds : [],
+          }));
+
+          setUsers(mappedUsers);
+
+          let meContextUserId: string | null = null;
+          try {
+            const meContext = await fetchMeContext();
+            meContextUserId = meContext.userId;
+          } catch {
+            const seededUserId = mappedUsers[0]?.user_id;
+            if (!seededUserId) return false;
+
+            await createDevSession({ userId: seededUserId });
+            const meContext = await fetchMeContext();
+            meContextUserId = meContext.userId;
+          }
+
+          if (!meContextUserId) return false;
+
+          const current = mappedUsers.find((candidate) => candidate.user_id === meContextUserId) ?? mappedUsers[0];
+
+          setCurrentUserState(current);
+          setSession({
+            provider: 'external',
+            isAuthenticated: true,
+            issuedAt: new Date().toISOString(),
+          });
+
+          return true;
+        } catch (error) {
+          console.error('Failed to bootstrap backend dev session flow:', error);
+        }
 
         try {
           const [sessionMe, backendUsers] = await Promise.all([fetchSessionMe(), fetchUsers()]);
@@ -237,9 +301,52 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const setCurrentUser = (user: User | null) => {
     const next = resolveSessionUser(user, users);
+    const previousUser = currentUser;
     setCurrentUserState(next);
 
     if (next) {
+      if (isBackendSessionEnabled()) {
+        const requestId = ++sessionSwitchRequestId.current;
+        const switchRequest = sessionSwitchQueue.current.then(() =>
+          createDevSession({ userId: next.user_id }),
+        );
+        sessionSwitchQueue.current = switchRequest.then(
+          () => undefined,
+          () => undefined,
+        );
+
+        void (async () => {
+          try {
+            const switchedSession = await switchRequest;
+            if (requestId !== sessionSwitchRequestId.current) return;
+
+            setCurrentUserState({
+              ...next,
+              user_id: switchedSession.userId,
+              name: switchedSession.displayName,
+              role: normalizeSessionRole(switchedSession.role),
+              permissions: switchedSession.effectivePermissions,
+              managed_customer_ids: switchedSession.managedCustomerIds,
+            });
+            setSession({
+              provider: 'external',
+              isAuthenticated: true,
+              issuedAt: switchedSession.issuedAt,
+            });
+          } catch (error) {
+            if (requestId !== sessionSwitchRequestId.current) return;
+
+            setCurrentUserState((activeUser) =>
+              activeUser?.user_id === next.user_id ? previousUser : activeUser,
+            );
+            const message = error instanceof Error ? error.message : 'Failed to switch backend session user.';
+            setSyncError(message);
+            console.error('Failed to switch backend session user:', error);
+          }
+        })();
+        return;
+      }
+
       setSession((prev) => ({
         provider: prev?.provider ?? 'demo',
         isAuthenticated: true,
@@ -250,6 +357,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    sessionSwitchRequestId.current += 1;
     setSession(null);
   };
 
