@@ -6,6 +6,7 @@ import type { Vehicle } from '../../../types/customer';
 import { useUser } from '../../../context/UserContext';
 import { userCanViewVehicle } from '../../management/components/rolePermissions';
 import VehicleDetailDrawer from '../VehicleDetailDrawer';
+import VehicleUploadQueue, { type VehicleUploadBatch } from '../VehicleUploadQueue';
 import {
   activityOptions,
   buildInitialProductStatusMap,
@@ -22,7 +23,7 @@ import {
   type YearFilter,
   yearOptions,
 } from '../vehiclePageData';
-import VinUploadModal from '../VinUploadModal';
+import VinUploadModal, { type CompletedVinUpload } from '../VinUploadModal';
 
 export default function VehiclesPage() {
   const { currentUser } = useUser();
@@ -38,6 +39,8 @@ export default function VehiclesPage() {
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isVinUploadModalOpen, setIsVinUploadModalOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'inventory' | 'queue'>('inventory');
+  const [uploadBatches, setUploadBatches] = useState<VehicleUploadBatch[]>([]);
   const [modalTargetVehicleIds, setModalTargetVehicleIds] = useState<string[]>([]);
   const [productStatusByVehicle, setProductStatusByVehicle] = useState<Record<string, Record<string, ProductAssignmentStatus>>>(() =>
     buildInitialProductStatusMap(seededVehicles),
@@ -180,6 +183,19 @@ export default function VehiclesPage() {
     setModalTargetVehicleIds([]);
   };
 
+  const handleUploadComplete = (upload: CompletedVinUpload) => {
+    const batch: VehicleUploadBatch = {
+      id: globalThis.crypto?.randomUUID?.() ?? `upload-${Date.now()}`,
+      fileName: upload.fileName,
+      uploadedAt: upload.uploadedAt,
+      uploaderName: currentUser?.name ?? 'Current user',
+      insertedCount: upload.insertedCount,
+      records: upload.records,
+    };
+    setUploadBatches((previous) => [batch, ...previous]);
+    setActiveView('queue');
+  };
+
   const renderProductStatusTags = (vehicle: Vehicle) => {
     if (!vehicle.products.length) {
       return <span style={{ color: '#9ca3af' }}>No products</span>;
@@ -219,15 +235,50 @@ export default function VehiclesPage() {
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 'none', margin: 0, overflowX: 'hidden' }}>
-      <header style={{ marginBottom: 24 }}>
-        <p style={{ margin: 0, color: '#6b7280', letterSpacing: 1.2, textTransform: 'uppercase', fontSize: 12 }}>Vehicles</p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 24, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: '8px 0 0', fontSize: 42, lineHeight: 1.1 }}>Available Vehicles</h1>
-          <div style={{ color: '#6b7280', fontSize: 13 }}>Showing {filteredVehicles.length} vehicles</div>
+    <div style={{ width: '100%', maxWidth: 'none', margin: 0, overflowX: 'hidden', color: '#172033' }}>
+      <header style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+        <div>
+          <p style={{ margin: 0, color: '#667085', letterSpacing: 1.2, textTransform: 'uppercase', fontSize: 11, fontWeight: 700 }}>Marketplace · Vehicles</p>
+          <h1 style={{ margin: '8px 0 0', fontSize: 34, lineHeight: 1.1, letterSpacing: -0.7 }}>Vehicles</h1>
+          <p style={{ margin: '8px 0 0', color: '#667085', fontSize: 13 }}>
+            {activeView === 'inventory'
+              ? 'Monitor vehicle health, assignments, and upload activity.'
+              : 'Review uploaded vehicle records before they enter approved inventory.'}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsVinUploadModalOpen(true)}
+          style={{ marginTop: 18, padding: '11px 22px', borderRadius: 9, border: '1px solid #0563a7', background: '#0563a7', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)' }}
+        >
+          Upload vehicles
+        </button>
       </header>
 
+      <div style={{ marginBottom: 20, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, background: '#fff', border: '1px solid #dbe3ec', borderRadius: 12, boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+        {[
+          { id: 'inventory' as const, title: 'Vehicle Inventory', detail: `Approved vehicles · ${visibleVehicles.length.toLocaleString()}`, icon: '▦' },
+          { id: 'queue' as const, title: 'Upload Queue', detail: uploadBatches.length ? `${uploadBatches.reduce((sum, batch) => sum + batch.records.length, 0).toLocaleString()} uploaded records` : 'No queued uploads', icon: '⇧' },
+        ].map((tab) => {
+          const active = activeView === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveView(tab.id)}
+              style={{ padding: '14px 16px', borderRadius: 9, border: active ? '2px solid #0563a7' : '1px solid #e1e7ef', background: active ? '#eef5ff' : '#fff', display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left', cursor: 'pointer', boxShadow: active ? '0 1px 2px rgba(5, 99, 167, 0.12)' : 'none' }}
+            >
+              <span style={{ width: 40, height: 40, borderRadius: 999, display: 'grid', placeItems: 'center', background: active ? '#0563a7' : '#f2f4f7', color: active ? '#fff' : '#667085', fontSize: 16 }}>{tab.icon}</span>
+              <span>
+                <span style={{ display: 'block', color: active ? '#0563a7' : '#172033', fontSize: 14, fontWeight: 750 }}>{tab.title}</span>
+                <span style={{ display: 'block', marginTop: 4, color: '#667085', fontSize: 11 }}>{tab.detail}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {activeView === 'inventory' ? (
       <div
         style={{
           width: '100%',
@@ -238,13 +289,14 @@ export default function VehiclesPage() {
           minWidth: 0,
           overflow: 'hidden',
           background: '#fff',
-          border: '1px solid #e5e7eb',
-          borderRadius: 18,
+          border: '1px solid #dbe3ec',
+          borderRadius: 14,
           boxSizing: 'border-box',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.05)',
         }}
       >
         <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 16, minWidth: 0, padding: '0 10px', width: '100%' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 0, minWidth: 0, padding: 16, width: '100%', boxSizing: 'border-box', borderBottom: '1px solid #edf1f6' }}>
           <label style={{ display: 'grid', gap: 8, flex: '1 1 220px', minWidth: 0, maxWidth: '100%' }}>
           <span style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1 }}>Search</span>
           <input
@@ -381,23 +433,6 @@ export default function VehiclesPage() {
           </label>
 
           <div style={{ display: 'grid', gap: 2, minWidth: 0, flex: '0 0 auto', alignSelf: 'end', marginBottom: 2 }}>
-            <button
-              type="button"
-              onClick={() => setIsVinUploadModalOpen(true)}
-              style={{
-                padding: '7px 10px',
-                borderRadius: 9,
-                border: '1px solid #d1d5db',
-                background: '#ffffff',
-                color: '#334155',
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Upload VIN CSV
-            </button>
             <button
               type="button"
               onClick={() => openProductModalForVehicles(selectedVehicleIds)}
@@ -544,6 +579,13 @@ export default function VehiclesPage() {
           />
         </div>
       </div>
+      ) : (
+        <VehicleUploadQueue
+          batches={uploadBatches}
+          onUpload={() => setIsVinUploadModalOpen(true)}
+          onRemoveBatch={(batchId) => setUploadBatches((previous) => previous.filter((batch) => batch.id !== batchId))}
+        />
+      )}
 
       <ProductAssignmentModal
         isOpen={isProductModalOpen}
@@ -560,6 +602,7 @@ export default function VehiclesPage() {
       <VinUploadModal
         isOpen={isVinUploadModalOpen}
         onClose={() => setIsVinUploadModalOpen(false)}
+        onUploadComplete={handleUploadComplete}
         customers={customers}
       />
     </div>

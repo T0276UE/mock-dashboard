@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse } from 'csv-parse/sync';
-import { DBSQLClient } from '@databricks/sql';
+import { uploadLocalVinRecords as uploadRecordsThroughSpring } from './upload-local-vin-records.mjs';
 
 const CUSTOMER_NAME_TO_ID = {
   motorq: 'CUST-000124',
@@ -15,37 +15,13 @@ const CUSTOMER_NAME_TO_ID = {
   supportco: 'CUST-000714',
   autofincorp: 'CUST-000801',
 };
-
-function requiredEnv(name, fallbackName) {
-  const fallback = fallbackName ? process.env[fallbackName] : undefined;
-  const value = process.env[name] ?? fallback;
-
-  if (!value || !String(value).trim()) {
-    const aliasText = fallbackName ? ` (or ${fallbackName})` : '';
-    throw new Error(`Missing required environment variable: ${name}${aliasText}`);
-  }
-
-  return String(value).trim();
-}
+const CUSTOMER_IDS = new Set(Object.values(CUSTOMER_NAME_TO_ID));
 
 function optionalEnv(name, fallbackName, defaultValue) {
   const fallback = fallbackName ? process.env[fallbackName] : undefined;
   const value = process.env[name] ?? fallback;
   if (value === undefined || value === null || String(value).trim() === '') return defaultValue;
   return String(value).trim();
-}
-
-function normalizeHost(value) {
-  return value.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
-
-function normalizeHttpPath(value) {
-  const trimmed = value.trim();
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-}
-
-function quoteIdentifier(value) {
-  return `\`${value.replace(/`/g, '``')}\``;
 }
 
 function normalizeCsvKey(key) {
@@ -65,7 +41,8 @@ function normalizeCustomerId(value) {
   if (!raw) return null;
 
   if (/^CUST-\d+$/i.test(raw)) {
-    return raw.toUpperCase();
+    const customerId = raw.toUpperCase();
+    return CUSTOMER_IDS.has(customerId) ? customerId : null;
   }
 
   const mapped = CUSTOMER_NAME_TO_ID[normalizeCustomerName(raw)];
@@ -92,15 +69,6 @@ function safeOptional(value) {
 
 function buildVehicleId(index, seed) {
   return `LV-${seed}-${String(index + 1).padStart(4, '0')}`;
-}
-
-function buildTableName(tableKey) {
-  const catalog = optionalEnv('DATABRICKS_CATALOG', undefined, '');
-  const schema = optionalEnv('DATABRICKS_SCHEMA', undefined, 'default');
-  const table = optionalEnv(tableKey, undefined, 'local_vin_access');
-
-  const parts = [catalog, schema, table].filter(Boolean).map(quoteIdentifier);
-  return parts.join('.');
 }
 
 function getFieldFromRow(row, aliases) {
@@ -183,7 +151,9 @@ function validateRowsToLocalVinRecords(rows, uploaderUserID) {
 
     const rawCustomer = String(row.customerID ?? row.customer ?? '').trim();
     const customerID = normalizeCustomerId(rawCustomer);
-    if (rawCustomer && !customerID) {
+    if (!rawCustomer) {
+      issues.push('customer/customerID is required.');
+    } else if (!customerID) {
       issues.push('customer/customerID was provided but did not map to a valid customer ID.');
     }
 
@@ -449,88 +419,48 @@ export async function writeValidationArtifacts(validationResult, options = {}) {
   };
 }
 
-function escapeSqlString(value) {
-  return String(value).replace(/'/g, "''");
-}
+export async function uploadLocalVinRecords(records, options = {}) {
+  const apiRecords = records.map((record) => ({
+    vehicleId: record.vehicleId,
+    customerId: record.customerID,
+    pendingCustomerId: record.pendingCustomerID,
+    testvehicle: record.testvehicle,
+    vin: record.vin,
+    name: record.name,
+    make: record.make,
+    model: record.model,
+    year: record.year,
+    timestamp: record.timestamp,
+    uploaderUserId: record.uploaderUserID,
+  }));
 
-function sqlValue(value) {
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  return `'${escapeSqlString(value)}'`;
-}
-
-async function runStatement(session, statement) {
-  const op = await session.executeStatement(statement, {
-    runAsync: true,
-    maxRows: 1000,
+  const result = await uploadRecordsThroughSpring(apiRecords, {
+    apiBaseUrl: options.apiBaseUrl,
+    sessionCookie: options.sessionCookie,
+    sessionUserId: options.sessionUserId ?? options.uploaderUserID,
   });
 
-  try {
-    await op.fetchAll();
-  } finally {
-    await op.close();
-  }
-}
-
-function buildUpsertStatements(tableName, row) {
-  const customerMatchClause =
-    row.customerID === null || row.customerID === undefined
-      ? 'customerID IS NULL'
-      : `customerID = ${sqlValue(row.customerID)}`;
-
-  const deleteStatement = `DELETE FROM ${tableName} WHERE vin = ${sqlValue(row.vin)} AND ${customerMatchClause}`;
-
-  const insertStatement = `INSERT INTO ${tableName} (vehicleId, customerID, pendingCustomerID, testvehicle, vin, name, make, model, year, timestamp, uploaderUserID) VALUES (${sqlValue(row.vehicleId)}, ${sqlValue(row.customerID)}, ${sqlValue(row.pendingCustomerID)}, ${sqlValue(row.testvehicle)}, ${sqlValue(row.vin)}, ${sqlValue(row.name)}, ${sqlValue(row.make)}, ${sqlValue(row.model)}, ${sqlValue(row.year)}, ${sqlValue(row.timestamp)}, ${sqlValue(row.uploaderUserID)})`;
-
-  return [deleteStatement, insertStatement];
-}
-
-export async function uploadLocalVinRecords(records, options = {}) {
-  const host = normalizeHost(requiredEnv('DATABRICKS_SERVER_URL', 'VITE_DATABRICKS_SERVER_URL'));
-  const httpPath = normalizeHttpPath(requiredEnv('DATABRICKS_HTTP_PATH', 'VITE_DATABRICKS_HTTP_PATH'));
-  const token = requiredEnv('DATABRICKS_PERSONAL_ACCESS_TOKEN', undefined);
-  const tableName =
-    options.tableName ?? buildTableName('DATABRICKS_LOCAL_VIN_ACCESS_TABLE');
-
-  const client = new DBSQLClient();
-  let session;
-
-  try {
-    await client.connect({
-      host,
-      path: httpPath,
-      token,
-    });
-
-    session = await client.openSession();
-
-    for (const row of records) {
-      const statements = buildUpsertStatements(tableName, row);
-      for (const statement of statements) {
-        await runStatement(session, statement);
-      }
-    }
-  } finally {
-    if (session) await session.close();
-    await client.close();
-  }
-
   return {
-    tableName,
-    uploadedCount: records.length,
+    endpoint: `${result.apiBaseUrl}${result.path}`,
+    uploadedCount: result.insertedCount,
   };
 }
 
 export async function uploadLocalVinCsvFile(csvFilePath, options = {}) {
   const csvText = await fs.readFile(path.resolve(process.cwd(), csvFilePath), 'utf8');
   const records = parseLocalVinCsv(csvText, options);
-  return uploadLocalVinRecords(records, options);
+  return uploadLocalVinRecords(records, {
+    ...options,
+    sessionUserId: options.sessionUserId ?? options.uploaderUserID,
+  });
 }
 
 function parseArgs(argv) {
   const args = {
     file: null,
-    uploader: optionalEnv('DATABRICKS_UPLOAD_USER_ID', undefined, 'SYSTEM_UPLOAD'),
+    uploader: optionalEnv('BACKEND_DEV_USER_ID', 'DATABRICKS_UPLOAD_USER_ID', ''),
+    apiBaseUrl: optionalEnv('BACKEND_API_BASE_URL', 'VITE_BACKEND_API_BASE_URL', 'http://localhost:8080'),
+    sessionCookie: optionalEnv('BACKEND_SESSION_COOKIE', undefined, ''),
     dryRun: false,
     validateOnly: false,
     strictReport: false,
@@ -549,6 +479,18 @@ function parseArgs(argv) {
 
     if (arg === '--uploader' && argv[i + 1]) {
       args.uploader = argv[i + 1];
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--api-base-url' && argv[i + 1]) {
+      args.apiBaseUrl = argv[i + 1];
+      i += 1;
+      continue;
+    }
+
+    if (arg === '--session-cookie' && argv[i + 1]) {
+      args.sessionCookie = argv[i + 1];
       i += 1;
       continue;
     }
@@ -586,6 +528,10 @@ async function main() {
 
   if (!args.file) {
     throw new Error('Missing required --file argument. Example: npm run databricks:upload-local-vin -- --file data/databricks/sample.csv');
+  }
+
+  if (!args.validateOnly && !args.dryRun && !args.uploader && !args.sessionCookie) {
+    throw new Error('Missing backend session identity. Set BACKEND_DEV_USER_ID, pass --uploader <Neon user UUID>, or pass --session-cookie <JSESSIONID=...>.');
   }
 
   const csvText = await fs.readFile(path.resolve(process.cwd(), args.file), 'utf8');
@@ -626,8 +572,12 @@ async function main() {
     return;
   }
 
-  const result = await uploadLocalVinRecords(records);
-  console.log(`Uploaded ${result.uploadedCount} records to ${result.tableName}.`);
+  const result = await uploadLocalVinRecords(records, {
+    apiBaseUrl: args.apiBaseUrl,
+    sessionCookie: args.sessionCookie || undefined,
+    sessionUserId: args.uploader || undefined,
+  });
+  console.log(`Uploaded ${result.uploadedCount} records through ${result.endpoint}.`);
 }
 
 if (process.argv[1] && process.argv[1].includes('upload-local-vin-csv.mjs')) {

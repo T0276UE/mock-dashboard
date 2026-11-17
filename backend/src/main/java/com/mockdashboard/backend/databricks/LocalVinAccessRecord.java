@@ -1,15 +1,18 @@
 package com.mockdashboard.backend.databricks;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+
 public record LocalVinAccessRecord(
-    String vehicleId,
-    String customerId,
+    @NotBlank String vehicleId,
+    @NotBlank @Pattern(regexp = "(?i)^CUST-\\d+$") String customerId,
     Object pendingCustomerId,
     Boolean testvehicle,
-    String vin,
+    @NotBlank @Pattern(regexp = "^[A-HJ-NPR-Z0-9]{11,17}$") String vin,
     String name,
     String make,
     String model,
-    String year,
+    @Pattern(regexp = "^\\d{4}$") String year,
     String timestamp,
     String uploaderUserId
 ) {
