@@ -28,7 +28,7 @@ export const NavBar: React.FC<NavBarProps> = ({
   onTogglePinned,
   pinned,
 }) => {
-  const visible = routes.filter((r) => hasAccess(userRoles, userPermissions, r));
+  const visible = routes.filter((r) => !r.hideFromNavigation && hasAccess(userRoles, userPermissions, r));
   const routeIcons: Record<string, string> = {
     landing: landingPageIcon,
     customers: customersIcon,

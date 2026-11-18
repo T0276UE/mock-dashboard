@@ -23,7 +23,6 @@ const cardStyle = {
   borderRadius: 12,
   boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
 } as const;
-
 function formatUploadedAt(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -104,15 +103,15 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
   }
 
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+    <div className="vehicles-queue-layout">
+      <div className="vehicles-queue-metrics">
         {[
           { label: 'Queued uploads', value: batches.length, detail: 'Successfully transported' },
           { label: 'Vehicle records', value: rows.length, detail: 'Across all files' },
           { label: 'Customers', value: uniqueCustomers, detail: 'Known MVP accounts' },
           { label: 'Ready for review', value: rows.length, detail: 'No transport errors' },
         ].map((item) => (
-          <div key={item.label} style={{ ...cardStyle, padding: '18px 20px' }}>
+          <div key={item.label} className="vehicles-queue-card vehicles-queue-metric">
             <div style={{ color: '#667085', fontSize: 12, fontWeight: 600 }}>{item.label}</div>
             <div style={{ marginTop: 8, color: '#172033', fontSize: 28, lineHeight: 1, fontWeight: 750 }}>{item.value.toLocaleString()}</div>
             <div style={{ marginTop: 10, color: '#159947', fontSize: 12 }}>{item.detail}</div>
@@ -139,8 +138,8 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 360px', maxWidth: 560 }}>
+      <div className="vehicles-queue-toolbar">
+        <div className="vehicles-queue-search">
           <span style={{ position: 'absolute', left: 14, top: 11, color: '#98a2b3' }}>⌕</span>
           <input
             value={search}
@@ -159,11 +158,11 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
             }}
           />
         </div>
-        <button type="button" onClick={onUpload} style={primaryButtonStyle}>Upload another file</button>
+        <button type="button" onClick={onUpload} className="vehicles-primary-button">Upload another file</button>
       </div>
 
-      <section style={{ ...cardStyle, overflow: 'hidden' }}>
-        <div style={{ padding: '18px 20px 14px', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+      <section className="vehicles-queue-card vehicles-queue-table-card">
+        <div className="vehicles-queue-table-header">
           <div>
             <h2 style={{ margin: 0, color: '#172033', fontSize: 17 }}>Queued vehicles</h2>
             <p style={{ margin: '5px 0 0', color: '#667085', fontSize: 12 }}>Records successfully accepted by the backend upload endpoint.</p>
@@ -171,12 +170,12 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
           <div style={{ color: '#0563a7', fontSize: 12, fontWeight: 700 }}>{batches.length} uploads · {rows.length.toLocaleString()} records</div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-            <thead style={{ background: '#eef4fd' }}>
+        <div className="vehicles-queue-table-wrap">
+          <table className="vehicles-queue-table">
+            <thead>
               <tr>
                 {['File', 'Vehicle / VIN', 'Customer', 'Make / model', 'Uploaded by', 'Status'].map((label) => (
-                  <th key={label} style={{ padding: '10px 14px', color: '#667085', fontSize: 11, fontWeight: 600, textAlign: 'left', borderTop: '1px solid #e4eaf2', borderBottom: '1px solid #e4eaf2' }}>{label}</th>
+                  <th key={label}>{label}</th>
                 ))}
               </tr>
             </thead>
@@ -190,21 +189,21 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
                     onClick={() => setSelectedBatchId(batch.id)}
                     style={{ background: isSelected ? '#f5f9ff' : '#fff', cursor: 'pointer' }}
                   >
-                    <td style={cellStyle}>
+                    <td>
                       <div style={{ color: '#0563a7', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={batch.fileName}>{batch.fileName}</div>
                       <div style={{ marginTop: 4, color: '#98a2b3', fontSize: 11 }}>{formatUploadedAt(batch.uploadedAt)}</div>
                     </td>
-                    <td style={cellStyle}>
+                    <td>
                       <div style={{ fontWeight: 700, color: '#172033' }}>{record.name || record.vehicleId}</div>
                       <div style={{ marginTop: 4, color: '#667085', fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{record.vin}</div>
                     </td>
-                    <td style={cellStyle}>
+                    <td>
                       <div style={{ color: '#172033' }}>{customer?.name ?? record.customerId}</div>
                       <div style={{ marginTop: 4, color: '#98a2b3', fontSize: 11 }}>{record.customerId}</div>
                     </td>
-                    <td style={cellStyle}>{[record.make, record.model, record.year].filter(Boolean).join(' · ') || 'Not provided'}</td>
-                    <td style={cellStyle}>{batch.uploaderName}</td>
-                    <td style={cellStyle}>
+                    <td>{[record.make, record.model, record.year].filter(Boolean).join(' · ') || 'Not provided'}</td>
+                    <td>{batch.uploaderName}</td>
+                    <td>
                       <span style={{ display: 'inline-flex', padding: '5px 9px', borderRadius: 999, background: '#ecfdf3', border: '1px solid #abefc6', color: '#067647', fontSize: 11, fontWeight: 700 }}>Uploaded</span>
                     </td>
                   </tr>
@@ -217,7 +216,7 @@ export default function VehicleUploadQueue({ batches, onUpload, onRemoveBatch }:
           </table>
         </div>
 
-        <div style={{ padding: '14px 18px', borderTop: '1px solid #e4eaf2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+        <div className="vehicles-queue-table-footer">
           <div style={{ color: '#667085', fontSize: 12 }}>{filteredRows.length.toLocaleString()} records shown</div>
           <button
             type="button"
@@ -252,13 +251,4 @@ const primaryButtonStyle = {
   fontWeight: 700,
   cursor: 'pointer',
   boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
-} as const;
-
-const cellStyle = {
-  padding: '14px',
-  borderBottom: '1px solid #edf1f6',
-  color: '#344054',
-  fontSize: 12,
-  verticalAlign: 'middle',
-  overflow: 'hidden',
 } as const;
