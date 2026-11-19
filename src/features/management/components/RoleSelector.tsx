@@ -9,7 +9,7 @@ interface RoleSelectorProps {
 
 export function RoleSelector({ value, onChange, disabled = false }: RoleSelectorProps) {
   return (
-    <label style={{ display: 'grid', gap: 8, minWidth: 220 }}>
+    <label style={{ display: 'grid', gap: 8, minWidth: 0, width: '100%', textAlign: 'left' }}>
       <span style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1 }}>Role</span>
       <select
         value={value}
@@ -26,6 +26,9 @@ export function RoleSelector({ value, onChange, disabled = false }: RoleSelector
           outline: 'none',
           opacity: disabled ? 0.6 : 1,
           cursor: disabled ? 'not-allowed' : 'pointer',
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
         }}
       >
         {ROLE_OPTIONS.map((role) => (

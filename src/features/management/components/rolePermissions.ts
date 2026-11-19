@@ -14,7 +14,7 @@ export interface AccessTarget {
   managed_customer_ids?: string[];
 }
 
-export const ROLE_OPTIONS: Role[] = ['user', 'sysadmin', 'admin'];
+export const ROLE_OPTIONS: Role[] = ['user', 'admin'];
 
 export const ROLE_LABELS: Record<Role, string> = {
   user: 'User',
@@ -68,7 +68,7 @@ export function canAssignRole(actor: AccessActor | null | undefined, target: Acc
   if (!actor || !target) return false;
 
   if (actor.role === 'admin') {
-    return nextRole !== 'admin';
+    return true;
   }
 
   if (actor.role === 'sysadmin') {

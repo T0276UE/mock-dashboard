@@ -4,6 +4,8 @@ import type { Role } from '../../../navigation/types';
 import { RoleSelector } from './RoleSelector';
 import { DEFAULT_ROLE_PERMISSIONS, ROLE_PERMISSIONS, canAssignRole, canEditUserAccess, getAccessNotice } from './rolePermissions';
 import { customers } from '../../../data/customers';
+import { fetchMeContext, isBackendSessionEnabled, replaceUserManager, type MeContextResponse } from '../../../services/backendApi';
+import './UserPermissionManager.css';
 
 export function UserPermissionManager() {
   const {
@@ -19,6 +21,13 @@ export function UserPermissionManager() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
+  const [backendContext, setBackendContext] = useState<MeContextResponse | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [managerUpdating, setManagerUpdating] = useState(false);
+  const [managerError, setManagerError] = useState<string | null>(null);
+
+  const canShowBackendContextPanel = import.meta.env.DEV && isBackendSessionEnabled();
 
   useEffect(() => {
     if (!users.length) return;
@@ -47,9 +56,29 @@ export function UserPermissionManager() {
   );
   const canManageCustomerAccess = currentUser?.role === 'admin';
   const manageableUsers = useMemo(
-    () => users.filter((user) => user.user_id !== currentUser?.user_id),
+    () => users.filter((user) => user.manager_user_id === currentUser?.user_id),
     [users, currentUser?.user_id],
   );
+
+  const managerOptions = useMemo(() => {
+    if (!selectedUser) return [];
+
+    const isDescendant = (candidateId: string) => {
+      const visited = new Set<string>();
+      let currentId: string | null | undefined = candidateId;
+
+      while (currentId && !visited.has(currentId)) {
+        if (currentId === selectedUser.user_id) return true;
+        visited.add(currentId);
+        currentId = users.find((user) => user.user_id === currentId)?.manager_user_id;
+      }
+      return false;
+    };
+
+    return users.filter(
+      (candidate) => candidate.user_id !== selectedUser.user_id && !isDescendant(candidate.user_id),
+    );
+  }, [selectedUser, users]);
 
   const updateRoleForSelectedUser = (nextRole: Role) => {
     if (!selectedUser || !currentUser) return;
@@ -61,6 +90,39 @@ export function UserPermissionManager() {
     });
 
     setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  };
+
+  const updateManagerForSelectedUser = async (nextManagerId: string, selectElement: HTMLSelectElement) => {
+    if (!selectedUser || currentUser?.role !== 'admin') return;
+
+    const normalizedManagerId = nextManagerId || null;
+    if ((selectedUser.manager_user_id ?? null) === normalizedManagerId) return;
+
+    const previousManagerId = selectedUser.manager_user_id ?? '';
+
+    const managerName = normalizedManagerId
+      ? users.find((user) => user.user_id === normalizedManagerId)?.name ?? 'the selected manager'
+      : 'No direct manager';
+    const confirmed = window.confirm(
+      `Assign ${managerName} as ${selectedUser.name}'s manager? This will publish a new management tree snapshot.`,
+    );
+    if (!confirmed) {
+      selectElement.value = previousManagerId;
+      return;
+    }
+
+    setManagerUpdating(true);
+    setManagerError(null);
+    try {
+      const updated = await replaceUserManager(selectedUser.user_id, { managerUserId: normalizedManagerId });
+      setUserAccessProfile(selectedUser.user_id, { manager_user_id: updated.managerUserId });
+      setSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch (error) {
+      selectElement.value = previousManagerId;
+      setManagerError(error instanceof Error ? error.message : 'Failed to update manager.');
+    } finally {
+      setManagerUpdating(false);
+    }
   };
 
   const handleCustomerAccessToggle = async (userId: string, customerId: string, isChecked: boolean) => {
@@ -81,6 +143,28 @@ export function UserPermissionManager() {
       setUpdatingKey(null);
     }
   };
+
+  const refreshBackendContext = async () => {
+    if (!canShowBackendContextPanel) return;
+
+    setContextLoading(true);
+    setContextError(null);
+
+    try {
+      const context = await fetchMeContext();
+      setBackendContext(context);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load backend context.';
+      setContextError(message);
+    } finally {
+      setContextLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canShowBackendContextPanel) return;
+    void refreshBackendContext();
+  }, [canShowBackendContextPanel, currentUser?.user_id, session?.issuedAt]);
 
   return (
     <div
@@ -113,8 +197,8 @@ export function UserPermissionManager() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) minmax(220px, 300px)', gap: 24, marginBottom: 24 }}>
-        <label style={{ display: 'grid', gap: 8 }}>
+      <div className="permission-control-grid">
+        <label className="permission-control">
           <span style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1 }}>User</span>
           <select
             value={selectedUser?.user_id ?? ''}
@@ -126,6 +210,9 @@ export function UserPermissionManager() {
               background: '#fff',
               fontSize: 14,
               color: '#111827',
+              width: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
             }}
           >
             {users.map((user) => (
@@ -137,10 +224,39 @@ export function UserPermissionManager() {
         </label>
 
         <RoleSelector value={selectedRole} onChange={updateRoleForSelectedUser} disabled={!canEditSelectedUser} />
+
+        <label className="permission-control permission-control-manager">
+          <span style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1 }}>Manager</span>
+          <select
+            value={selectedUser?.manager_user_id ?? ''}
+            disabled={!selectedUser || currentUser?.role !== 'admin' || managerUpdating}
+            onChange={(event) => void updateManagerForSelectedUser(event.target.value, event.currentTarget)}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid #d1d5db',
+              background: '#fff',
+              fontSize: 14,
+              color: '#111827',
+              opacity: managerUpdating ? 0.65 : 1,
+            }}
+          >
+            <option value="">No direct manager</option>
+            {managerOptions.map((manager) => (
+              <option key={manager.user_id} value={manager.user_id}>
+                {manager.name} ({manager.email})
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
+      {managerError && (
+        <div style={{ margin: '-12px 0 20px', color: '#991b1b', fontSize: 12 }}>{managerError}</div>
+      )}
+
       {selectedUser && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
+        <div className="permission-summary-grid">
           <div style={{ background: '#f9fafb', borderRadius: 12, padding: 18, border: '1px solid #e5e7eb' }}>
             <div style={{ fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1.1, marginBottom: 8 }}>Account summary</div>
             <h3 style={{ margin: '0 0 8px', fontSize: 28 }}>{selectedUser.name}</h3>
@@ -200,6 +316,13 @@ export function UserPermissionManager() {
               </tr>
             </thead>
             <tbody>
+              {!manageableUsers.length && (
+                <tr>
+                  <td colSpan={customerOptions.length + 2} style={{ padding: '24px 12px', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                    You have no direct reports in the current management tree snapshot.
+                  </td>
+                </tr>
+              )}
               {manageableUsers.map((user) => (
                 <tr key={user.user_id} style={{ borderTop: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>
@@ -231,6 +354,69 @@ export function UserPermissionManager() {
           </table>
         </div>
       </div>
+
+      {canShowBackendContextPanel && (
+        <div
+          style={{
+            marginTop: 28,
+            border: '1px solid #d1fae5',
+            background: '#f0fdf4',
+            borderRadius: 12,
+            padding: 16,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Backend Context (Dev)</h3>
+            <button
+              type="button"
+              onClick={() => void refreshBackendContext()}
+              disabled={contextLoading}
+              style={{
+                border: '1px solid #10b981',
+                background: '#ecfdf5',
+                color: '#065f46',
+                borderRadius: 8,
+                padding: '6px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: contextLoading ? 'not-allowed' : 'pointer',
+                opacity: contextLoading ? 0.7 : 1,
+              }}
+            >
+              {contextLoading ? 'Refreshing...' : 'Refresh context'}
+            </button>
+          </div>
+
+          {contextError && (
+            <div
+              style={{
+                marginBottom: 10,
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid #fecaca',
+                background: '#fef2f2',
+                color: '#991b1b',
+                fontSize: 12,
+              }}
+            >
+              {contextError}
+            </div>
+          )}
+
+          {backendContext && (
+            <div style={{ fontSize: 13, color: '#065f46', display: 'grid', gap: 6 }}>
+              <div><strong>userId:</strong> {backendContext.userId}</div>
+              <div><strong>organizationId:</strong> {backendContext.organizationId}</div>
+              <div><strong>treeId:</strong> {backendContext.treeId}</div>
+              <div><strong>treeVersion:</strong> {backendContext.treeVersion}</div>
+              <div><strong>managerUserId:</strong> {backendContext.managerUserId ?? 'null'}</div>
+              <div><strong>directReportUserIds:</strong> {backendContext.directReportUserIds.join(', ') || '[]'}</div>
+              <div><strong>peerUserIds:</strong> {backendContext.peerUserIds.join(', ') || '[]'}</div>
+              <div><strong>pathToRootUserIds:</strong> {backendContext.pathToRootUserIds.join(' -> ') || '[]'}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

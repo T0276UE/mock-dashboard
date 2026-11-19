@@ -9,4 +9,5 @@ export interface NavRoute {
   requiredRoles?: Role[];
   requiredPermissions?: string[];
   icon?: string;
+  hideFromNavigation?: boolean;
 }
