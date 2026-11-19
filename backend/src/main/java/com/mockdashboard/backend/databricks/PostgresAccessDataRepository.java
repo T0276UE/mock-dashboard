@@ -1,7 +1,7 @@
 package com.mockdashboard.backend.databricks;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -104,7 +104,7 @@ public class PostgresAccessDataRepository {
         if (value == null) return null;
         try {
             return objectMapper.readValue(value, Object.class);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Invalid pending_customer_id JSON in Neon.", exception);
         }
     }
@@ -113,7 +113,7 @@ public class PostgresAccessDataRepository {
         if (value == null) return null;
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("Unable to serialize pendingCustomerID payload.", exception);
         }
     }

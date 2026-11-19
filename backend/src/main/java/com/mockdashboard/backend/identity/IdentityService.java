@@ -1,8 +1,9 @@
 package com.mockdashboard.backend.identity;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.mockdashboard.backend.access.AccessUser;
 import com.mockdashboard.backend.access.SessionMeResponse;
 import org.springframework.context.annotation.Profile;
@@ -10,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -267,7 +267,7 @@ public class IdentityService {
         try {
             JsonNode parsed = objectMapper.readTree(structureJson);
             if (!(parsed instanceof ObjectNode root)) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid snapshot structure.");
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid snapshot structure.");
             }
 
             ObjectNode managers = objectMapper.createObjectNode();
@@ -282,8 +282,8 @@ public class IdentityService {
                 });
             root.set("managerByUser", managers);
             return objectMapper.writeValueAsString(root);
-        } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid snapshot JSON format.");
+        } catch (JacksonException exception) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid snapshot JSON format.");
         }
     }
 
@@ -330,12 +330,12 @@ public class IdentityService {
 
             List<String> permissions = new ArrayList<>();
             parsed.forEach(node -> {
-                if (node.isTextual()) {
-                    permissions.add(node.asText());
+                if (node.isString()) {
+                    permissions.add(node.stringValue());
                 }
             });
             return permissions;
-        } catch (IOException ignored) {
+        } catch (JacksonException ignored) {
             return List.of();
         }
     }
@@ -346,16 +346,16 @@ public class IdentityService {
             JsonNode managerByUserNode = root.path("managerByUser");
 
             if (!managerByUserNode.isObject()) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid snapshot structure: managerByUser object missing.");
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid snapshot structure: managerByUser object missing.");
             }
 
             Map<UUID, UUID> managerByUser = new HashMap<>();
-            managerByUserNode.fields().forEachRemaining(field -> {
+            managerByUserNode.properties().forEach(field -> {
                 UUID subjectId;
                 try {
                     subjectId = UUID.fromString(field.getKey());
                 } catch (IllegalArgumentException exception) {
-                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid UUID in managerByUser key: " + field.getKey());
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid UUID in managerByUser key: " + field.getKey());
                 }
 
                 JsonNode managerNode = field.getValue();
@@ -364,7 +364,7 @@ public class IdentityService {
                     return;
                 }
 
-                String managerValue = managerNode.asText();
+                String managerValue = managerNode.stringValue();
                 if (managerValue == null || managerValue.isBlank()) {
                     managerByUser.put(subjectId, null);
                     return;
@@ -373,13 +373,13 @@ public class IdentityService {
                 try {
                     managerByUser.put(subjectId, UUID.fromString(managerValue));
                 } catch (IllegalArgumentException exception) {
-                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid UUID in managerByUser value: " + managerValue);
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid UUID in managerByUser value: " + managerValue);
                 }
             });
 
             return managerByUser;
-        } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid snapshot JSON format.");
+        } catch (JacksonException exception) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Invalid snapshot JSON format.");
         }
     }
 
@@ -390,7 +390,7 @@ public class IdentityService {
 
         while (current != null) {
             if (!visited.add(current)) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Management tree contains a cycle.");
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Management tree contains a cycle.");
             }
 
             path.add(current);
