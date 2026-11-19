@@ -1,6 +1,7 @@
 package com.mockdashboard.backend.authorization.security;
 
 import com.mockdashboard.backend.authorization.AuthorizationService;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.io.Serializable;
 
 @Component
+@Profile("!postgres")
 public class AuthorizationPermissionEvaluator implements PermissionEvaluator {
 
     private final AuthorizationService authorizationService;
@@ -18,10 +20,7 @@ public class AuthorizationPermissionEvaluator implements PermissionEvaluator {
 
     @Override
     public boolean hasPermission(Authentication authentication, Object targetDomainObject, Object permission) {
-        if (authentication == null || !authentication.isAuthenticated() || targetDomainObject == null || permission == null) {
-            return false;
-        }
-        return authorizationService.hasPermission(authentication.getName(), permission.toString());
+        return false;
     }
 
     @Override

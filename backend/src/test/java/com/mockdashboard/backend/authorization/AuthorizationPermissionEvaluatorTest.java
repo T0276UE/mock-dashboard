@@ -5,28 +5,31 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class AuthorizationPermissionEvaluatorTest {
 
-    private final AuthorizationService authorizationService = mock(AuthorizationService.class);
+    private final AuthorizationService authorizationService = new AuthorizationService(null, null) {
+        @Override
+        public boolean hasScopedPermission(String userId, String permissionCode, String resourceType, String resourceId) {
+            return "USR-001".equals(userId)
+                && "customers:manage".equals(permissionCode)
+                && "customer".equals(resourceType)
+                && "CUST-000124".equals(resourceId);
+        }
+    };
     private final AuthorizationPermissionEvaluator evaluator =
         new AuthorizationPermissionEvaluator(authorizationService);
 
     @Test
-    void checksRoleOrUserPermissionForUnscopedResources() {
+    void deniesUnscopedPermissionChecks() {
         var authentication = UsernamePasswordAuthenticationToken.authenticated("USR-001", null, java.util.List.of());
-        when(authorizationService.hasPermission("USR-001", "users:manage")).thenReturn(true);
 
-        assertThat(evaluator.hasPermission(authentication, "user", "users:manage")).isTrue();
+        assertThat(evaluator.hasPermission(authentication, "user", "users:manage")).isFalse();
     }
 
     @Test
     void checksGrantForScopedResources() {
         var authentication = UsernamePasswordAuthenticationToken.authenticated("USR-001", null, java.util.List.of());
-        when(authorizationService.hasScopedPermission("USR-001", "customers:manage", "customer", "CUST-000124"))
-            .thenReturn(true);
 
         assertThat(evaluator.hasPermission(authentication, "CUST-000124", "customer", "customers:manage")).isTrue();
     }

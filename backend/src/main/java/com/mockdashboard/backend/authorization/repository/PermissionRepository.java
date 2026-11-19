@@ -1,6 +1,7 @@
 package com.mockdashboard.backend.authorization.repository;
 
 import com.mockdashboard.backend.authorization.model.Permission;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 @Repository
+@Profile("!postgres")
 public class PermissionRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -27,6 +29,7 @@ public class PermissionRepository {
                     FROM app_user
                     JOIN role_permission ON role_permission.role_code = app_user.role_code
                     WHERE app_user.user_id = :userId
+                      AND app_user.role_code IN ('user', 'admin')
                 ),
                 distinct_permissions AS (
                     SELECT permission_code, MIN(sort_order) AS sort_order
@@ -58,6 +61,18 @@ public class PermissionRepository {
         );
     }
 
+    public List<String> findRolePermissions(String roleCode) {
+        return jdbc.queryForList("""
+                SELECT permission_code
+                FROM role_permission
+                WHERE role_code = :roleCode
+                ORDER BY permission_code
+                """,
+            Map.of("roleCode", roleCode),
+            String.class
+        );
+    }
+
     public boolean hasUserPermission(String userId, String roleCode, String permissionCode) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
                 SELECT EXISTS (
@@ -66,6 +81,7 @@ public class PermissionRepository {
                     UNION ALL
                     SELECT 1 FROM role_permission
                     WHERE role_code = :roleCode AND permission_code = :permissionCode
+                      AND role_code IN ('user', 'admin')
                 )
                 """,
             Map.of("userId", userId, "roleCode", roleCode, "permissionCode", permissionCode),
@@ -75,14 +91,35 @@ public class PermissionRepository {
 
     public boolean hasScopedGrant(String userId, String permissionCode, String resourceType, String resourceId) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
-                SELECT EXISTS (
-                    SELECT 1
+                WITH RECURSIVE grant_chain(candidate_id, grant_id, source_grant_id, revoked_at, visited) AS (
+                    SELECT grant_id, grant_id, source_grant_id, revoked_at, ARRAY[grant_id]
                     FROM access_grant
                     WHERE grantee_user_id = :userId
                       AND permission_code = :permissionCode
                       AND resource_type = :resourceType
                       AND resource_id = :resourceId
                       AND revoked_at IS NULL
+                    UNION ALL
+                    SELECT chain.candidate_id, source.grant_id, source.source_grant_id,
+                           source.revoked_at, chain.visited || source.grant_id
+                    FROM grant_chain chain
+                    JOIN access_grant source ON source.grant_id = chain.source_grant_id
+                    WHERE NOT source.grant_id = ANY(chain.visited)
+                )
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM grant_chain candidate
+                    WHERE candidate.candidate_id = candidate.grant_id
+                      AND EXISTS (
+                          SELECT 1 FROM grant_chain root
+                          WHERE root.candidate_id = candidate.candidate_id
+                            AND root.source_grant_id IS NULL
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM grant_chain revoked
+                          WHERE revoked.candidate_id = candidate.candidate_id
+                            AND revoked.revoked_at IS NOT NULL
+                      )
                 )
                 """,
             Map.of(

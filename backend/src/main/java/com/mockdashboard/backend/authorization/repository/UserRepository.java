@@ -1,6 +1,7 @@
 package com.mockdashboard.backend.authorization.repository;
 
 import com.mockdashboard.backend.authorization.model.UserEntity;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -11,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Repository
+@Profile("!postgres")
 public class UserRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -89,7 +91,7 @@ public class UserRepository {
                     SELECT user_id
                     FROM app_user
                     WHERE manager_user_id = :managerUserId
-                    UNION ALL
+                    UNION
                     SELECT child.user_id
                     FROM app_user child
                     JOIN descendants parent ON child.manager_user_id = parent.user_id
