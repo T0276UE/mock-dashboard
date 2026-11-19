@@ -1,7 +1,7 @@
 package com.mockdashboard.backend.databricks;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -143,7 +143,7 @@ public class DatabricksAccessRepository {
 
         try {
             return objectMapper.writeValueAsString(pendingCustomerId);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("Unable to serialize pendingCustomerID payload.", exception);
         }
     }

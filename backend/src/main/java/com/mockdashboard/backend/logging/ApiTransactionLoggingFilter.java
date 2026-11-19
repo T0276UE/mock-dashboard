@@ -64,19 +64,18 @@ public class ApiTransactionLoggingFilter extends OncePerRequestFilter {
         String requestId = UUID.randomUUID().toString();
         long startNanos = System.nanoTime();
 
-        ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
         Throwable failure = null;
 
         try {
-            filterChain.doFilter(requestWrapper, responseWrapper);
+            filterChain.doFilter(request, responseWrapper);
         } catch (Throwable throwable) {
             failure = throwable;
             throw throwable;
         } finally {
             long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
-            String line = buildLogLine(requestId, requestWrapper, responseWrapper, elapsedMillis, failure);
+            String line = buildLogLine(requestId, request, responseWrapper, elapsedMillis, failure);
 
             if (failure == null) {
                 logger.info(line);

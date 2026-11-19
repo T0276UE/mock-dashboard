@@ -12,8 +12,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import org.springframework.context.annotation.Profile;
 
 @Configuration
+@Profile("postgres")
 @EnableConfigurationProperties(PostgresJdbcProperties.class)
 public class PostgresJdbcConfig {
 
