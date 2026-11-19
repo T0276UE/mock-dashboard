@@ -17,3 +17,6 @@ spring:
     validate-on-migrate: true
     out-of-order: false
     table: flyway_schema_history
+database:
+  jdbc:
+    url: ${DATABASE_URL:}

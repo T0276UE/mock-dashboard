@@ -1,0 +1,22 @@
+package com.mockdashboard.backend.authorization.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
+@Configuration
+@Profile("!postgres")
+@EnableMethodSecurity
+public class AuthorizationMethodSecurityConfiguration {
+
+    @Bean
+    MethodSecurityExpressionHandler methodSecurityExpressionHandler(
+            AuthorizationPermissionEvaluator permissionEvaluator) {
+        var expressionHandler = new DefaultMethodSecurityExpressionHandler();
+        expressionHandler.setPermissionEvaluator(permissionEvaluator);
+        return expressionHandler;
+    }
+}
