@@ -1,6 +1,7 @@
 package com.mockdashboard.backend.authorization.repository;
 
 import com.mockdashboard.backend.authorization.model.AccessGrant;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -9,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Repository
+@Profile("!postgres")
 public class AccessGrantRepository {
 
     private final NamedParameterJdbcTemplate jdbc;

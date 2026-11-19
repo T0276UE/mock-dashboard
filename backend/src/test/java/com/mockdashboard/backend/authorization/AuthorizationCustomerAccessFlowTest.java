@@ -5,13 +5,15 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,14 +32,15 @@ class AuthorizationCustomerAccessFlowTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void reactCustomerAccessFlowReadsAndWritesScopedPostgresGrants() throws Exception {
-        mockMvc.perform(get("/api/v1/users/authorization"))
+    void reactCustomerAccessFlowReadsAndWritesScopedGrants() throws Exception {
+        MockHttpSession session = authenticatedSession();
+        mockMvc.perform(get("/api/v1/users/authorization").session(session))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].user_id").value("USR-001"))
             .andExpect(jsonPath("$[0].permissions[0]").value("dashboard:view"))
             .andExpect(jsonPath("$[0].permissions").value(org.hamcrest.Matchers.hasItem("products:view")));
 
-        mockMvc.perform(get("/api/v1/users/authorization/customer-access"))
+        mockMvc.perform(get("/api/v1/users/authorization/customer-access").session(session))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.user_id == 'USR-003' && @.customer_id == 'CUST-000208')]").exists());
 
@@ -47,6 +50,7 @@ class AuthorizationCustomerAccessFlowTest {
             """);
 
         mockMvc.perform(put("/api/v1/users/authorization/customer-access")
+                .session(session)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -59,14 +63,16 @@ class AuthorizationCustomerAccessFlowTest {
             .andExpect(jsonPath("$[0].customer_id").value("CUST-000124"))
             .andExpect(jsonPath("$[0].granted_by").value("USR-001"));
 
-        mockMvc.perform(get("/api/v1/users/authorization/customer-access"))
+        mockMvc.perform(get("/api/v1/users/authorization/customer-access").session(session))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.user_id == 'USR-AUTH-FLOW-TEST' && @.customer_id == 'CUST-000124')]").exists());
     }
 
     @Test
     void customerGrantCannotExceedGrantorsManagedScope() throws Exception {
+        MockHttpSession session = authenticatedSession();
         mockMvc.perform(put("/api/v1/users/authorization/customer-access")
+                .session(session)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -75,5 +81,17 @@ class AuthorizationCustomerAccessFlowTest {
                     }
                     """))
             .andExpect(status().isForbidden());
+    }
+
+    private MockHttpSession authenticatedSession() throws Exception {
+        return (MockHttpSession) mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"user_id": "USR-001"}
+                    """))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getRequest()
+            .getSession(false);
     }
 }
