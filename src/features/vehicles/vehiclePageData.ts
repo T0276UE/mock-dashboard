@@ -98,11 +98,11 @@ export const columnWidths: Record<string, number> = {
 
 export const columnAlignments: Record<string, 'center' | 'left' | 'right'> = {
   Select: 'center',
-  Vehicle: 'center',
-  Customer: 'center',
-  VIN: 'center',
-  Make: 'center',
-  Model: 'center',
+  Vehicle: 'left',
+  Customer: 'left',
+  VIN: 'left',
+  Make: 'left',
+  Model: 'left',
   Year: 'center',
   'Product Status': 'center',
 };

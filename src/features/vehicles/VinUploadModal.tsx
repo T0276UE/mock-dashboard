@@ -1,230 +1,50 @@
-import { useMemo, useState } from 'react';
-import { parse } from 'csv-parse/browser/esm/sync';
+import { useMemo, useRef, useState } from 'react';
+import { uploadLocalVinRecords } from '../../services/backendApi';
 import type { Customer } from '../../types/customer';
+import { parseLocalVinCsv, type LocalVinCsvResult } from './localVinCsv';
+
+export interface CompletedVinUpload {
+  fileName: string;
+  uploadedAt: string;
+  insertedCount: number;
+  records: LocalVinCsvResult['records'];
+}
 
 interface VinUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onUploadComplete: (upload: CompletedVinUpload) => void;
   customers: Customer[];
 }
 
-interface RejectedRow {
-  rowNumber: number;
-  issues: string[];
-}
-
-interface ValidationSummary {
-  totalRows: number;
-  acceptedRows: number;
-  rejectedRows: number;
-}
-
-interface ValidationResult {
-  summary: ValidationSummary;
-  rejected: RejectedRow[];
-}
-
-type ParsedRow = {
-  vin?: string;
-  customer?: string;
-  customerID?: string;
-  testVehicle?: string | boolean;
-  make?: string;
-  model?: string;
-  year?: string;
-};
-
-function normalizeKey(value: string): string {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function normalizeCustomerName(value: string): string {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function parseBool(value: string | boolean | null | undefined): boolean {
-  if (typeof value === 'boolean') return value;
-
-  const normalized = String(value ?? '').trim().toLowerCase();
-  if (!normalized) return false;
-  if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
-  if (['false', '0', 'no', 'n'].includes(normalized)) return false;
-  throw new Error(`Invalid boolean value: "${value}"`);
-}
-
-function parseHeaderRows(csvText: string): ParsedRow[] {
-  const rows = parse(csvText, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    bom: true,
-    relax_column_count: true,
-  }) as Record<string, unknown>[];
-
-  return rows.map((row) => {
-    const entries = Object.entries(row);
-
-    const getField = (aliases: string[]) => {
-      const match = entries.find(([key]) => aliases.includes(normalizeKey(key)));
-      return match ? match[1] : undefined;
-    };
-
-    return {
-      vin: String(getField(['vin']) ?? ''),
-      customer: String(getField(['customer']) ?? ''),
-      customerID: String(getField(['customerid']) ?? ''),
-      testVehicle: getField(['testvehicle', 'testing', 'test']) as string | boolean | undefined,
-      make: String(getField(['make']) ?? ''),
-      model: String(getField(['model']) ?? ''),
-      year: String(getField(['year']) ?? ''),
-    };
-  });
-}
-
-function parsePositionalRows(csvText: string): ParsedRow[] {
-  const rows = parse(csvText, {
-    columns: false,
-    skip_empty_lines: true,
-    trim: true,
-    bom: true,
-    relax_column_count: true,
-  }) as string[][];
-
-  return rows.map((cols, index) => {
-    if (!Array.isArray(cols) || cols.length < 1) {
-      throw new Error(
-        `Row ${index + 1}: expected VIN with optional customer and testVehicle columns.`,
-      );
-    }
-
-    if (cols.length === 1) {
-      return { vin: cols[0], customer: '', testVehicle: false };
-    }
-
-    if (cols.length === 2) {
-      const maybeBool = String(cols[1] ?? '').trim().toLowerCase();
-      if (['true', 'false', '1', '0', 'yes', 'no', 'y', 'n'].includes(maybeBool)) {
-        return { vin: cols[0], customer: '', testVehicle: cols[1] };
-      }
-
-      return { vin: cols[0], customer: cols[1], testVehicle: false };
-    }
-
-    if (cols.length === 3) {
-      const secondIsBool = ['true', 'false', '1', '0', 'yes', 'no', 'y', 'n'].includes(
-        String(cols[1] ?? '').trim().toLowerCase(),
-      );
-
-      if (secondIsBool) {
-        return { vin: cols[0], customer: '', testVehicle: cols[1], make: cols[2] };
-      }
-
-      return { vin: cols[0], customer: cols[1], testVehicle: cols[2] };
-    }
-
-    if (cols.length === 5) {
-      return {
-        vin: cols[0],
-        customer: '',
-        testVehicle: cols[1],
-        make: cols[2],
-        model: cols[3],
-        year: cols[4],
-      };
-    }
-
-    return {
-      vin: cols[0],
-      customer: cols[1],
-      testVehicle: cols[2],
-      make: cols[3],
-      model: cols[4],
-      year: cols[5],
-    };
-  });
-}
-
-function validateCsv(csvText: string, customerNameMap: Map<string, string>): ValidationResult {
-  const headerRows = parseHeaderRows(csvText);
-  const hasHeader = headerRows.length > 0 && !!headerRows[0].vin;
-  const rows = hasHeader ? headerRows : parsePositionalRows(csvText);
-
-  const rejected: RejectedRow[] = [];
-
-  rows.forEach((row, index) => {
-    const issues: string[] = [];
-    const vin = String(row.vin ?? '').trim().toUpperCase();
-    const customerRaw = String(row.customerID ?? row.customer ?? '').trim();
-
-    if (!vin) {
-      issues.push('VIN is required.');
-    } else if (!/^[A-HJ-NPR-Z0-9]{11,17}$/.test(vin)) {
-      issues.push('VIN must be 11-17 characters and exclude I/O/Q.');
-    }
-
-    let customerID = customerRaw;
-    if (!/^CUST-\d+$/i.test(customerRaw)) {
-      customerID = customerNameMap.get(normalizeCustomerName(customerRaw)) ?? '';
-    }
-
-    if (customerRaw && !customerID) {
-      issues.push('customer/customerID was provided but did not map to a known customer.');
-    }
-
-    try {
-      parseBool(row.testVehicle);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid testVehicle value.';
-      issues.push(message);
-    }
-
-    const year = String(row.year ?? '').trim();
-    if (year && !/^\d{4}$/.test(year)) {
-      issues.push('year must be a 4-digit value when provided.');
-    }
-
-    if (issues.length) {
-      rejected.push({ rowNumber: index + 1, issues });
-    }
-  });
-
-  return {
-    summary: {
-      totalRows: rows.length,
-      acceptedRows: rows.length - rejected.length,
-      rejectedRows: rejected.length,
-    },
-    rejected,
-  };
-}
-
-export default function VinUploadModal({ isOpen, onClose, customers }: VinUploadModalProps) {
+export default function VinUploadModal({ isOpen, onClose, onUploadComplete, customers }: VinUploadModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [selectedFileSize, setSelectedFileSize] = useState<number | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [validationResult, setValidationResult] = useState<LocalVinCsvResult | null>(null);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [uploadComplete, setUploadComplete] = useState<number | null>(null);
 
-  const customerNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    customers.forEach((customer) => {
-      map.set(normalizeCustomerName(customer.name), customer.customerId);
-    });
-    return map;
-  }, [customers]);
+  const uploadCustomers = useMemo(
+    () => customers.map(({ customerId, name }) => ({ customerId, name })),
+    [customers],
+  );
 
   if (!isOpen) return null;
 
   const resetState = () => {
     setSelectedFileName(null);
+    setSelectedFileSize(null);
     setValidationResult(null);
     setFatalError(null);
+    setUploadComplete(null);
+    setIsUploading(false);
   };
 
   const handleClose = () => {
+    if (isUploading) return;
     resetState();
     onClose();
   };
@@ -233,156 +53,173 @@ export default function VinUploadModal({ isOpen, onClose, customers }: VinUpload
     setIsValidating(true);
     setFatalError(null);
     setValidationResult(null);
+    setUploadComplete(null);
     setSelectedFileName(file.name);
+    setSelectedFileSize(file.size);
 
     try {
       const csvText = await file.text();
-      const result = validateCsv(csvText, customerNameMap);
-      setValidationResult(result);
+      setValidationResult(parseLocalVinCsv(csvText, uploadCustomers));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to parse CSV file.';
-      setFatalError(message);
+      setFatalError(error instanceof Error ? error.message : 'Unable to parse CSV file.');
     } finally {
       setIsValidating(false);
     }
   };
 
-  const isAccepted = Boolean(validationResult && validationResult.summary.rejectedRows === 0 && validationResult.summary.totalRows > 0);
+  const handleTransport = async () => {
+    if (!validationResult || validationResult.records.length === 0 || validationResult.rejected.length > 0 || !selectedFileName) return;
+
+    setIsUploading(true);
+    setFatalError(null);
+    try {
+      const response = await uploadLocalVinRecords(validationResult.records);
+      setUploadComplete(response.insertedCount);
+      onUploadComplete({
+        fileName: selectedFileName,
+        uploadedAt: new Date().toISOString(),
+        insertedCount: response.insertedCount,
+        records: validationResult.records,
+      });
+    } catch (error) {
+      setFatalError(error instanceof Error ? error.message : 'The upload could not be completed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const isReady = Boolean(validationResult && validationResult.rejected.length === 0 && validationResult.records.length > 0);
+  const previewRecords = validationResult?.records.slice(0, 5) ?? [];
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Upload VIN CSV"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15, 23, 42, 0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 160,
-        padding: 16,
-      }}
+      aria-label="Upload vehicle CSV"
       onClick={handleClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 160, display: 'grid', placeItems: 'center', padding: 20, background: 'rgba(15, 23, 42, 0.52)', backdropFilter: 'blur(2px)' }}
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        style={{
-          width: 'min(760px, 96vw)',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          background: '#fff',
-          border: '1px solid #dbe3ef',
-          borderRadius: 12,
-          boxShadow: '0 24px 60px rgba(15, 23, 42, 0.28)',
-          padding: 20,
-        }}
+        style={{ width: 'min(820px, 96vw)', maxHeight: '92vh', overflow: 'auto', border: '1px solid #d9e2ec', borderRadius: 16, background: '#fff', boxShadow: '0 28px 72px rgba(15, 23, 42, 0.28)' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid #e7edf4', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 30, lineHeight: 1.1 }}>Upload VIN CSV</h2>
-            <p style={{ margin: '8px 0 0', color: '#64748b', fontSize: 13 }}>
-              Supported formats: VIN+customer, VIN+customer+testVehicle, VIN+customer+testVehicle+make+model+year.
-            </p>
+            <div style={{ color: '#0563a7', fontSize: 11, fontWeight: 750, letterSpacing: 1.2, textTransform: 'uppercase' }}>Vehicle upload</div>
+            <h2 style={{ margin: '6px 0 0', color: '#172033', fontSize: 26, letterSpacing: -0.4 }}>Upload vehicle records</h2>
+            <p style={{ margin: '7px 0 0', color: '#667085', fontSize: 13 }}>Select a CSV, review validation results, then securely transport the records through Spring Boot.</p>
           </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            style={{ border: 'none', background: 'transparent', fontSize: 28, lineHeight: 1, color: '#64748b', cursor: 'pointer' }}
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <button type="button" onClick={handleClose} disabled={isUploading} aria-label="Close upload modal" style={{ width: 34, height: 34, flex: '0 0 auto', borderRadius: 9, border: '1px solid #e1e7ef', background: '#fff', color: '#667085', fontSize: 22, lineHeight: 1, cursor: isUploading ? 'not-allowed' : 'pointer' }}>×</button>
         </div>
 
-        <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 18, background: '#f8fafc' }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              style={{ display: 'none' }}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                void handleFileUpload(file);
-              }}
-            />
-            <span
-              style={{
-                padding: '10px 14px',
-                borderRadius: 8,
-                border: '1px solid #bfdbfe',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              Select CSV File
-            </span>
-            <span style={{ color: '#475569', fontSize: 13 }}>{selectedFileName ?? 'No file selected'}</span>
-          </label>
-        </div>
-
-        {isValidating && <p style={{ marginTop: 14, color: '#475569' }}>Validating upload...</p>}
-
-        {fatalError && (
-          <div
-            style={{
-              marginTop: 14,
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid #fecaca',
-              background: '#fef2f2',
-              color: '#991b1b',
-              fontSize: 13,
-            }}
-          >
-            {fatalError}
-          </div>
-        )}
-
-        {validationResult && (
-          <div style={{ marginTop: 14, display: 'grid', gap: 12 }}>
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: isAccepted ? '1px solid #86efac' : '1px solid #fecaca',
-                background: isAccepted ? '#ecfdf5' : '#fef2f2',
-                color: isAccepted ? '#166534' : '#991b1b',
-                fontWeight: 600,
-              }}
-            >
-              {isAccepted ? '✔ Upload accepted. CSV validation passed.' : '✖ Upload rejected. Please review and re-upload.'}
-              <div style={{ marginTop: 4, fontWeight: 500, fontSize: 12 }}>
-                {validationResult.summary.acceptedRows} accepted / {validationResult.summary.rejectedRows} rejected / {validationResult.summary.totalRows} total
+        <div style={{ padding: 24, display: 'grid', gap: 18 }}>
+          {uploadComplete !== null ? (
+            <div style={{ minHeight: 360, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
+              <div style={{ maxWidth: 480 }}>
+                <div style={{ width: 66, height: 66, margin: '0 auto 18px', display: 'grid', placeItems: 'center', borderRadius: 999, background: '#ecfdf3', border: '1px solid #abefc6', color: '#067647', fontSize: 30 }}>✓</div>
+                <h3 style={{ margin: 0, color: '#172033', fontSize: 25 }}>Upload completed</h3>
+                <p style={{ margin: '10px 0 0', color: '#667085', lineHeight: 1.6, fontSize: 14 }}><strong>{uploadComplete.toLocaleString()}</strong> vehicle records from <strong>{selectedFileName}</strong> were accepted and added to the upload queue.</p>
+                <button type="button" onClick={handleClose} style={{ ...primaryButtonStyle, marginTop: 24 }}>View upload queue</button>
               </div>
             </div>
-
-            {validationResult.rejected.length > 0 && (
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ padding: '10px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 700, fontSize: 13 }}>
-                  Rejection Reasons
+          ) : (
+            <>
+              <div
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                style={{ border: '1.5px dashed #9fb9d4', borderRadius: 14, background: selectedFileName ? '#f7fbff' : '#fbfdff', padding: '24px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, cursor: 'pointer' }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleFileUpload(file);
+                    event.target.value = '';
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 15, minWidth: 0 }}>
+                  <div style={{ width: 48, height: 48, flex: '0 0 auto', display: 'grid', placeItems: 'center', borderRadius: 12, background: '#eaf4ff', color: '#0563a7', fontSize: 24 }}>⇧</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: '#172033', fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFileName ?? 'Choose a vehicle CSV file'}</div>
+                    <div style={{ marginTop: 5, color: '#667085', fontSize: 12 }}>{selectedFileSize === null ? 'CSV file · Customer assignment required' : `${(selectedFileSize / 1024).toFixed(1)} KB · Click to replace`}</div>
+                  </div>
                 </div>
-                <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-                  {validationResult.rejected.map((item) => (
-                    <div key={`reject-${item.rowNumber}`} style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9' }}>
-                      <div style={{ fontWeight: 700, fontSize: 12, color: '#0f172a' }}>Row {item.rowNumber}</div>
-                      <ul style={{ margin: '6px 0 0', paddingLeft: 18, color: '#7f1d1d', fontSize: 12 }}>
-                        {item.issues.map((issue) => (
-                          <li key={`${item.rowNumber}-${issue}`}>{issue}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+                <span style={{ flex: '0 0 auto', border: '1px solid #c9d7e6', borderRadius: 9, background: '#fff', padding: '9px 13px', color: '#344054', fontSize: 12, fontWeight: 700 }}>Browse files</span>
               </div>
-            )}
+
+              {isValidating && <StatusBanner tone="info" title="Validating CSV" detail="Checking VIN format, customer assignments, and optional vehicle fields…" />}
+              {fatalError && <StatusBanner tone="error" title="Upload could not be completed" detail={fatalError} />}
+
+              {validationResult && (
+                <>
+                  <StatusBanner tone={isReady ? 'success' : 'error'} title={isReady ? 'CSV passed validation' : 'CSV needs attention'} detail={`${validationResult.summary.acceptedRows} accepted · ${validationResult.summary.rejectedRows} rejected · ${validationResult.summary.totalRows} total`} />
+
+                  {previewRecords.length > 0 && (
+                    <div style={{ border: '1px solid #dfe6ee', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ padding: '12px 14px', borderBottom: '1px solid #e7edf4', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <span style={{ color: '#344054', fontSize: 12, fontWeight: 750 }}>Record preview</span>
+                        <span style={{ color: '#667085', fontSize: 11 }}>Showing {previewRecords.length} of {validationResult.records.length}</span>
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: 620, borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead><tr style={{ background: '#eef4fd' }}>{['Vehicle', 'VIN', 'Customer', 'Make / model', 'Year'].map((label) => <th key={label} style={headerCellStyle}>{label}</th>)}</tr></thead>
+                          <tbody>{previewRecords.map((record) => {
+                            const customer = customers.find((entry) => entry.customerId === record.customerId);
+                            return <tr key={record.vehicleId}>
+                              <td style={previewCellStyle}>{record.name}</td>
+                              <td style={{ ...previewCellStyle, fontFamily: 'ui-monospace, monospace' }}>{record.vin}</td>
+                              <td style={previewCellStyle}>{customer?.name ?? record.customerId}</td>
+                              <td style={previewCellStyle}>{[record.make, record.model].filter(Boolean).join(' ') || '—'}</td>
+                              <td style={previewCellStyle}>{record.year ?? '—'}</td>
+                            </tr>;
+                          })}</tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {validationResult.rejected.length > 0 && (
+                    <div style={{ border: '1px solid #fecdca', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ padding: '11px 14px', background: '#fff4f2', color: '#b42318', fontSize: 12, fontWeight: 750 }}>Rejected rows</div>
+                      <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                        {validationResult.rejected.map((item) => <div key={item.rowNumber} style={{ padding: '10px 14px', borderTop: '1px solid #fee4e2', color: '#7a271a', fontSize: 12 }}><strong>Row {item.rowNumber}:</strong> {item.issues.join(' ')}</div>)}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+
+        {uploadComplete === null && (
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e7edf4', background: '#fbfcfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+            <div style={{ color: '#667085', fontSize: 12 }}>{isReady ? `${validationResult?.records.length ?? 0} records ready for transport` : 'Select a valid CSV to continue'}</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={handleClose} disabled={isUploading} style={secondaryButtonStyle}>Cancel</button>
+              <button type="button" onClick={() => void handleTransport()} disabled={!isReady || isUploading} style={{ ...primaryButtonStyle, opacity: !isReady || isUploading ? 0.5 : 1, cursor: !isReady || isUploading ? 'not-allowed' : 'pointer' }}>
+                {isUploading ? 'Uploading…' : `Upload ${validationResult?.records.length ?? 0} vehicles`}
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+function StatusBanner({ tone, title, detail }: { tone: 'info' | 'success' | 'error'; title: string; detail: string }) {
+  const colors = tone === 'success'
+    ? { border: '#abefc6', bg: '#ecfdf3', title: '#067647', dot: '#17b26a' }
+    : tone === 'error'
+      ? { border: '#fecdca', bg: '#fff4f2', title: '#b42318', dot: '#f04438' }
+      : { border: '#b2ddff', bg: '#eff8ff', title: '#175cd3', dot: '#2e90fa' };
+  return <div style={{ border: `1px solid ${colors.border}`, borderRadius: 11, background: colors.bg, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}><span style={{ marginTop: 4, width: 8, height: 8, borderRadius: 999, background: colors.dot, flex: '0 0 auto' }} /><div><div style={{ color: colors.title, fontSize: 13, fontWeight: 750 }}>{title}</div><div style={{ marginTop: 3, color: '#667085', fontSize: 12 }}>{detail}</div></div></div>;
+}
+
+const primaryButtonStyle = { border: '1px solid #0563a7', borderRadius: 9, background: '#0563a7', color: '#fff', padding: '10px 16px', fontSize: 12, fontWeight: 750, cursor: 'pointer' } as const;
+const secondaryButtonStyle = { border: '1px solid #d0d9e5', borderRadius: 9, background: '#fff', color: '#344054', padding: '10px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer' } as const;
+const headerCellStyle = { padding: '9px 12px', color: '#667085', fontSize: 10, fontWeight: 650, textAlign: 'left', borderBottom: '1px solid #dfe6ee' } as const;
+const previewCellStyle = { padding: '10px 12px', color: '#344054', borderBottom: '1px solid #edf1f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const;

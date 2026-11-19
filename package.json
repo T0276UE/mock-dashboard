@@ -18,7 +18,8 @@
     "databricks:sync-access": "node --env-file=.env data/sync-databricks-access.mjs",
     "databricks:discover": "node --env-file=.env data/sync-databricks-access.mjs --discover",
     "databricks:upload-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs",
-    "databricks:validate-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs --validate-only"
+    "databricks:validate-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs --validate-only",
+    "backend:upload-local-vin": "node --env-file=.env data/upload-local-vin-csv.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1167.0",

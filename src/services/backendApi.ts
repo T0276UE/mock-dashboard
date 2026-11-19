@@ -76,6 +76,24 @@ export interface MeContextResponse {
   pathToRootUserIds: string[];
 }
 
+export interface LocalVinAccessRecordPayload {
+  vehicleId: string;
+  customerId: string;
+  pendingCustomerId: unknown;
+  testvehicle: boolean;
+  vin: string;
+  name: string;
+  make: string | null;
+  model: string | null;
+  year: string | null;
+  timestamp: string;
+  uploaderUserId: string | null;
+}
+
+export interface UploadLocalVinAccessResponse {
+  insertedCount: number;
+}
+
 export function isBackendSessionEnabled(): boolean {
   return String(import.meta.env.VITE_USE_BACKEND_SESSION ?? '').toLowerCase() === 'true';
 }
@@ -154,4 +172,13 @@ export async function createDevSession(payload: DevSessionRequest): Promise<DevS
 
 export async function fetchMeContext(): Promise<MeContextResponse> {
   return request<MeContextResponse>('/api/v1/me/context', { method: 'GET' });
+}
+
+export async function uploadLocalVinRecords(
+  records: LocalVinAccessRecordPayload[],
+): Promise<UploadLocalVinAccessResponse> {
+  return request<UploadLocalVinAccessResponse>('/api/v1/local-vin-access', {
+    method: 'POST',
+    body: JSON.stringify({ records }),
+  });
 }

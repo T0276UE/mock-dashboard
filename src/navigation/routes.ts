@@ -54,4 +54,12 @@ export const routes: NavRoute[] = [
     requiredRoles: editors,
     requiredPermissions: ['users:manage'],
   },
+  {
+    id: 'profile',
+    path: '/profile',
+    name: 'Profile',
+    component: 'ProfilePage',
+    requiredRoles: all,
+    hideFromNavigation: true,
+  },
 ];

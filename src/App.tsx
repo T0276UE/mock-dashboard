@@ -2,6 +2,7 @@ import './App.css';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import NavBar from './app/components/NavBar';
+import ProfileButton from './app/components/ProfileButton';
 import UserSelector from './app/components/UserSelector';
 import { useUser } from './context/UserContext.tsx';
 import { routes } from './navigation/routes';
@@ -12,6 +13,7 @@ import ProductsPage from './features/products/pages/ProductsPage';
 import VehiclesPage from './features/vehicles/pages/VehiclesPage';
 import CompatibilityPage from './features/compatibility/pages/CompatibilityPage';
 import ManagementPage from './features/management/pages/ManagementPage';
+import ProfilePage from './features/profile/pages/ProfilePage';
 import type { Role } from './navigation/types';
 
 const pageMap = {
@@ -21,6 +23,7 @@ const pageMap = {
   '/vehicles': VehiclesPage,
   '/compatibility': CompatibilityPage,
   '/management': ManagementPage,
+  '/profile': ProfilePage,
 };
 
 function App() {
@@ -64,7 +67,10 @@ function App() {
       <div className={`app-main ${isNavExpanded ? 'app-main-expanded' : ''}`}>
         <nav className="app-topbar">
           <div className="app-title">Mock Dashboard</div>
-          <UserSelector />
+          <div className="app-account-controls">
+            <UserSelector />
+            <ProfileButton />
+          </div>
         </nav>
         <main className="app-content">{content}</main>
       </div>

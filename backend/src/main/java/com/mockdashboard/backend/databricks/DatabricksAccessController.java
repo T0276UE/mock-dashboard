@@ -2,6 +2,7 @@ package com.mockdashboard.backend.databricks;
 
 import jakarta.validation.Valid;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,8 +48,11 @@ public class DatabricksAccessController {
 
     @PostMapping("/local-vin-access")
     public UploadLocalVinAccessResponse uploadLocalVinAccess(
-        @Valid @RequestBody UploadLocalVinAccessRequest request
+        @Valid @RequestBody UploadLocalVinAccessRequest request,
+        Authentication authentication
     ) {
-        return accessService.uploadLocalVinAccess(request);
+        return accessService.uploadLocalVinAccess(
+            LocalVinUploadSupport.forAuthenticatedUser(request, authentication)
+        );
     }
 }
